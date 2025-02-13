@@ -1,0 +1,59 @@
+# database.py
+from sqlalchemy import create_engine, Column, String, Boolean, Integer, JSON, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+import os
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@db:5432/ozlistings")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+    user_id = Column(String, primary_key=True, index=True)
+    profile_data = Column(JSON)
+
+class ChatLog(Base):
+    __tablename__ = "chat_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, index=True)
+    sender = Column(String)  # 'user' or 'agent'
+    message = Column(String)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
+
+# Utility functions for profile handling
+def get_user_profile(user_id: str):
+    db = SessionLocal()
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        return profile.profile_data if profile else None
+    finally:
+        db.close()
+
+def update_user_profile(user_id: str, profile_data: dict):
+    db = SessionLocal()
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        if profile:
+            profile.profile_data = profile_data
+        else:
+            profile = UserProfile(user_id=user_id, profile_data=profile_data)
+            db.add(profile)
+        db.commit()
+    finally:
+        db.close()
+
+# Utility function for chat log persistence
+def add_chat_log(user_id: str, sender: str, message: str):
+    db = SessionLocal()
+    try:
+        chat_log = ChatLog(user_id=user_id, sender=sender, message=message)
+        db.add(chat_log)
+        db.commit()
+    finally:
+        db.close()

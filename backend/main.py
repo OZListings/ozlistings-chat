@@ -2,22 +2,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Import stub functions from our modules
-from rag import get_response_from_rag
-from profiling import update_profile
+from rag import get_response_from_gemini
+from profiling import update_profile, get_profile
 
 app = FastAPI(title="Ozlistings AI Agent")
 
-# Configure CORS to allow requests from your frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace "*" with your actual domain(s)
+    allow_origins=["*"],  # In production, restrict this to your domain(s)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Request and response models for the /chat endpoint
 class ChatRequest(BaseModel):
     user_id: str
     message: str
@@ -25,7 +22,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     response: str
 
-# Request and response models for the /profile endpoint
 class ProfileUpdateRequest(BaseModel):
     user_id: str
     message: str
@@ -38,24 +34,24 @@ def read_root():
     return {"message": "Welcome to Ozlistings AI Agent!"}
 
 @app.post("/chat", response_model=ChatResponse)
-def chat_endpoint(chat_req: ChatRequest):
-    """
-    Endpoint to handle chat messages.
-    Calls the RAG pipeline to generate a response.
-    """
+async def chat_endpoint(chat_req: ChatRequest):
     try:
-        response_text = get_response_from_rag(chat_req.user_id, chat_req.message)
+        response_text = await get_response_from_gemini(chat_req.user_id, chat_req.message)
+        return {"response": response_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return {"response": response_text}
 
 @app.post("/profile", response_model=ProfileUpdateResponse)
-def profile_endpoint(profile_req: ProfileUpdateRequest):
-    """
-    Endpoint to update and retrieve the user's profile.
-    """
+async def profile_endpoint(profile_req: ProfileUpdateRequest):
     try:
-        updated_profile = update_profile(profile_req.user_id, profile_req.message)
+        updated_profile = await update_profile(profile_req.user_id, profile_req.message)
+        return {"profile": updated_profile}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    return {"profile": updated_profile}
+
+@app.get("/profile/{user_id}")
+def get_profile_endpoint(user_id: str):
+    profile = get_profile(user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return profile

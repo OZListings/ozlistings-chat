@@ -6,12 +6,13 @@ authors = ["Your Name <you@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-fastapi = "^0.100.0"           # Use a newer FastAPI version that can work with Pydantic 2.x
+fastapi = "^0.100.0"
 uvicorn = "^0.20.0"
-llama-index = "^0.12.17"        # Latest version that uses Pydantic >=2.8.0 via llama-index-core
 psycopg2-binary = "^2.9.5"
 sqlalchemy = "^1.4.47"
-pydantic = ">=2.8.0,<3.0.0"     # Force Pydantic 2.x
+pydantic = ">=2.8.0,<3.0.0"
+google-generativeai = "^0.3.0"
+python-dotenv = "^1.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.2"
