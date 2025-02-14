@@ -1,23 +1,28 @@
+# frontend/Dockerfile
 # Use an official Node.js runtime as a parent image
-FROM node:16-alpine
+FROM node:16-alpine as builder
 
 # Set working directory
 WORKDIR /app
 
-# Copy package.json (and package-lock.json if available)
-COPY package.json ./
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy app files
 COPY . .
 
-# Bind the React development server to 0.0.0.0 so it is accessible externally
-ENV HOST=0.0.0.0
+# Build the app for production
+RUN npm run build
 
-# Expose port 3000 for the React app
-EXPOSE 3000
+# --- Production Stage ---
+FROM nginx:alpine 
 
-# Start the React development server
-CMD ["npm", "start"]
+COPY --from=builder /app/build /usr/share/nginx/html 
+COPY nginx.conf /etc/nginx/conf.d/default.conf 
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
