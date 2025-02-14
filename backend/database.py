@@ -1,4 +1,3 @@
-# database.py
 from sqlalchemy import create_engine, Column, String, Boolean, Integer, JSON, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -57,3 +56,19 @@ def add_chat_log(user_id: str, sender: str, message: str):
         db.commit()
     finally:
         db.close()
+
+# Test function to check database connection and table creation
+def test_db_connection():
+    try:
+        init_db() # Initialize tables
+        db = SessionLocal()
+        db.execute("SELECT 1") # Simple query to test connection
+        print("Database connection successful and tables initialized.")
+        db.close()
+        return True
+    except Exception as e:
+        print(f"Database connection failed: {e}")
+        return False
+
+if __name__ == "__main__":
+    test_db_connection()
