@@ -1,10 +1,24 @@
 steps:
+  # Step 1: Explicitly authenticate Docker to Artifact Registry within Cloud Build environment
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: ['auth', 'configure-docker', 'us-central1-docker.pkg.dev'] # Explicitly use 'us-central1'
+
+  # Step 2: Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID', '-f', 'backend/Dockerfile', '.']
+    args: [
+      'build',
+      '-t', 'us-central1-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:cb-explicit-auth-region', # Explicitly use 'us-central1' in tag
+      '-f', 'backend/Dockerfile',
+      '.'
+    ]
+
+  # Step 3: Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID']
+    args: [
+      'push', 'us-central1-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:cb-explicit-auth-region' # Explicitly use 'us-central1' in push
+    ]
 images:
-  - '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID'
+  - 'us-central1-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:cb-explicit-auth-region' # Explicitly use 'us-central1' in images
 options:
   logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
