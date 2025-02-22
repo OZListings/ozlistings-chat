@@ -3,7 +3,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
-      '-t', 'us-docker.pkg.dev/ozlistings-chat/ozlistings-frontend-repo/ozlistings-frontend:$BUILD_ID',
+      '-t', 'us-docker.pkg.dev/ozlistings-chat/ozlistings-chat-frontend/ozlistings-frontend:$BUILD_ID', # Global Artifact Registry path
       '-f', 'frontend/Dockerfile',
       './frontend' # Build context is frontend directory
     ]
@@ -11,7 +11,7 @@ steps:
   # Step 2: Push the frontend Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: [
-      'push', 'us-docker.pkg.dev/ozlistings-chat/ozlistings-frontend-repo/ozlistings-frontend:$BUILD_ID'
+      'push', 'us-docker.pkg.dev/ozlistings-chat/ozlistings-chat-frontend/ozlistings-frontend:$BUILD_ID' # Global Artifact Registry path
     ]
 
   # Step 3: Deploy frontend to Cloud Run
@@ -19,17 +19,17 @@ steps:
     args:
     - 'run'
     - 'deploy'
-    - 'ozlistings-chat-frontend' # Frontend Cloud Run service name (you created this)
+    - 'ozlistings-chat-frontend' # Frontend Cloud Run service name
     - '--image'
-    - 'us-docker.pkg.dev/ozlistings-chat/ozlistings-frontend-repo/ozlistings-frontend:$BUILD_ID'
+    - 'us-docker.pkg.dev/ozlistings-chat/ozlistings-chat-frontend/ozlistings-frontend:$BUILD_ID' # Global Artifact Registry path
     - '--region'
-    - 'us-central1'
+    - 'us-central1' # Cloud Run region (still regional)
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated' # Allow public access to frontend
 
 images:
-  - 'us-docker.pkg.dev/ozlistings-chat/ozlistings-frontend-repo/ozlistings-frontend:$BUILD_ID'
+  - 'us-docker.pkg.dev/ozlistings-chat/ozlistings-chat-frontend/ozlistings-frontend:$BUILD_ID' # Global Artifact Registry path
 options:
   logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
