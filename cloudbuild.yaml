@@ -1,8 +1,10 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/ozlistings-backend:$BUILD_ID', '-f', 'backend/Dockerfile', '.']
+    args: ['build', '-t', '${REGION}-docker.pkg.dev/$PROJECT_ID/ozlistings-backend-repo/ozlistings-backend:$BUILD_ID', '-f', 'backend/Dockerfile', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '${REGION}-docker.pkg.dev/$PROJECT_ID/ozlistings-backend-repo/ozlistings-backend:$BUILD_ID']
 images:
-  - 'gcr.io/$PROJECT_ID/ozlistings-backend:$BUILD_ID'
+  - '${REGION}-docker.pkg.dev/$PROJECT_ID/ozlistings-backend-repo/ozlistings-backend:$BUILD_ID'
 options:
-  logging: CLOUD_LOGGING_ONLY # Or NONE if you prefer no detailed logging
+  logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
