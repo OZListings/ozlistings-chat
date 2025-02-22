@@ -11,6 +11,9 @@ const EnhancedChat = () => {
   const [error, setError] = useState(null);
   const messagesEndRef = useRef(null);
 
+  // **IMPORTANT: Define your deployed backend URL here!**
+  const backendBaseURL = "https://ozlistings-chat-backend-1098767556937.us-central1.run.app"; // **REPLACE THIS WITH YOUR ACTUAL BACKEND URL IF IT'S DIFFERENT!**
+
   // Initial greeting from the agent
   const INITIAL_GREETING = {
     sender: 'agent',
@@ -45,7 +48,8 @@ Some topics we can discuss:
 
   const fetchProfile = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/profile/${email}`);
+      // **Use backendBaseURL here**
+      const response = await fetch(`${backendBaseURL}/profile/${email}`);
       const data = await response.json();
       setProfile(data);
     } catch (err) {
@@ -63,7 +67,8 @@ Some topics we can discuss:
 
     try {
       // Send message for chat response
-      const chatResponse = await fetch('http://localhost:8000/chat', {
+      // **Use backendBaseURL here**
+      const chatResponse = await fetch(`${backendBaseURL}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: email, message: message })
@@ -71,7 +76,8 @@ Some topics we can discuss:
       const chatData = await chatResponse.json();
 
       // Update profile in parallel
-      const profileResponse = await fetch('http://localhost:8000/profile', {
+      // **Use backendBaseURL here**
+      const profileResponse = await fetch(`${backendBaseURL}/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: email, message: message })
