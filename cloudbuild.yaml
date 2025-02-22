@@ -1,10 +1,10 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID', '-f', 'backend/Dockerfile', '.']
+    args: ['build', '-t', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy:$BUILD_ID', '-f', 'backend/Dockerfile', '.']
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID']
+    args: ['push', '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy:$BUILD_ID']
 images:
-  - '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy/ozlistings-backend:$BUILD_ID'
+  - '${LOCATION}-docker.pkg.dev/ozlistings-chat/cloud-run-source-deploy:$BUILD_ID'
 options:
   logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
