@@ -17,7 +17,6 @@ RUN poetry config virtualenvs.create false && \
 
 # Copy the backend source code into the container
 COPY backend/ .
-COPY data/ .
 
 # Expose port 8000 for the FastAPI app
 EXPOSE 8000
