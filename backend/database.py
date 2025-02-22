@@ -7,7 +7,7 @@ import os
 DB_USER = os.environ.get("DATABASE_USER")
 DB_PASSWORD = os.environ.get("DATABASE_USER_PASSWORD")
 DB_HOST = os.environ.get("CLOUD_SQL_PUBLIC_IP")
-DB_NAME = os.environ.get("DATABASE_ADMIN_NAME")
+DB_NAME = os.environ.get("DATABASE_NAME")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 
