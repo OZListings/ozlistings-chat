@@ -9,7 +9,7 @@ RUN pip install --upgrade pip && \
     pip install poetry==1.5.1
 
 # Copy the dependency descriptor from the repo root
-COPY pyproject.toml poetry.lock* ./
+COPY ../pyproject.toml ../poetry.lock* ./
 
 # Configure Poetry to install dependencies into the system environment (avoiding a virtual environment)
 RUN poetry config virtualenvs.create false && \
