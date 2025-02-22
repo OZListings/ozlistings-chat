@@ -7,9 +7,11 @@ from profiling import update_profile, get_profile # Import profiling functions
 
 app = FastAPI(title="Ozlistings AI Agent")
 
+frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app/"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to your domain(s)
+    allow_origins=[frontend_url],  # **Allow only your frontend URL**
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
