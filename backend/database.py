@@ -1,17 +1,19 @@
+from json import load
 from sqlalchemy import create_engine, Column, String, Boolean, Integer, JSON, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 
-DB_USER = os.environ.get("DATABASE_USER")
-DB_PASSWORD = os.environ.get("DATABASE_USER_PASSWORD")
-DB_HOST = os.environ.get("CLOUD_SQL_PUBLIC_IP")
-DB_NAME = os.environ.get("DATABASE_NAME")
+load_dotenv()
+
+DB_USER = os.getenv("DATABASE_USER")
+DB_PASSWORD = os.getenv("DATABASE_USER_PASSWORD")
+DB_HOST = os.getenv("CLOUD_SQL_PUBLIC_IP")
+DB_NAME = os.getenv("DATABASE_NAME")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
-
-engine = create_engine(DATABASE_URL)
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -64,17 +66,18 @@ def add_chat_log(user_id: str, sender: str, message: str):
     finally:
         db.close()
 
-# Test function to check database connection and table creation
+# **Enhanced Test Function to Check Database Connection**
 def test_db_connection():
+    print("--- Testing Database Connection ---")
+    print(f"DATABASE_URL: {DATABASE_URL}") # Print the constructed DATABASE_URL for debugging
     try:
-        init_db() # Initialize tables
-        db = SessionLocal()
-        db.execute("SELECT 1") # Simple query to test connection
-        print("Database connection successful and tables initialized.")
-        db.close()
+        engine.connect() # Try to establish a connection
+        print("Database connection successful!")
+        init_db() # Initialize tables (if not already created)
+        print("Tables initialized (if needed).")
         return True
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        print(f"Database connection failed!\nError: {e}")
         return False
 
 if __name__ == "__main__":
