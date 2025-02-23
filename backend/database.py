@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_USER = os.getenv("DATABASE_USER")
-DB_PASSWORD = os.getenv("DATABASE_USER_PASSWORD")
-DB_HOST = os.getenv("CLOUD_SQL_PUBLIC_IP")
-DB_NAME = os.getenv("DATABASE_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_NAME = os.getenv("DB_NAME")
 
 DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 engine = create_engine(DATABASE_URL)
