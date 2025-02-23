@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
+# Adding env variables for database connection
 load_dotenv()
 
 DB_USER = os.getenv("DB_USER")
