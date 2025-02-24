@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager # Import asynccontextmanager
 
 from rag import get_response_from_gemini
-from profiling import update_profile, get_profile
+from profiling import update_profile, get_profile, profile_extractor
 from database import init_db
 
 @asynccontextmanager # Add lifespan decorator

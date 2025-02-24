@@ -40,7 +40,13 @@ class ChatLog(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    print("--- init_db() function called ---")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("--- Base.metadata.create_all() executed successfully ---")
+    except Exception as e:
+        print(f"Error in init_db(): {e}")
+    print("--- init_db() function finished ---")
 
 # Utility functions for profile handling
 def get_user_profile(user_id: str):
