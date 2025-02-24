@@ -1,33 +1,37 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from contextlib import asynccontextmanager # Import asynccontextmanager
+from contextlib import asynccontextmanager
 
 from rag import get_response_from_gemini
-from profiling import update_profile, get_profile, profile_extractor
+from profiling import update_profile, get_profile
 from database import init_db
 
-@asynccontextmanager # Add lifespan decorator
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Run before the app starts
-    print("--- Running database initialization (lifespan startup) ---") # Log message for lifespan
+    print("--- Running database initialization (lifespan startup) ---")
     init_db()
-    print("--- Database initialization complete (lifespan startup) ---") # Log message for lifespan
+    print("--- Database initialization complete (lifespan startup) ---")
     yield
-    # Shutdown: Run after the app finishes (optional, can be empty for now)
+    # Shutdown: Run after the app finishes (optional)
     print("--- Lifespan shutdown event (optional) ---")
 
-app = FastAPI(title="Ozlistings AI Agent")
+app = FastAPI(lifespan=lifespan, title="Ozlistings AI Agent")
 
-frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app/"
+frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # **Allow only your frontend URL**
+    allow_origins=[frontend_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to Ozlistings AI Agent!"}
 
 class ChatRequest(BaseModel):
     user_id: str
@@ -35,17 +39,6 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-
-class ProfileUpdateRequest(BaseModel):
-    user_id: str
-    message: str
-
-class ProfileUpdateResponse(BaseModel):
-    profile: dict
-
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to Ozlistings AI Agent!"}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(chat_req: ChatRequest):
@@ -55,6 +48,13 @@ async def chat_endpoint(chat_req: ChatRequest):
         return {"response": response_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class ProfileUpdateRequest(BaseModel):
+    user_id: str
+    message: str
+
+class ProfileUpdateResponse(BaseModel):
+    profile: dict
 
 @app.post("/profile", response_model=ProfileUpdateResponse)
 async def profile_endpoint(profile_req: ProfileUpdateRequest):
