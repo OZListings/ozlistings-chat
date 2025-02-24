@@ -11,7 +11,7 @@ frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.a
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],  # **Allow only your frontend URL**
+    allow_origins=["*"],  # **Allow only your frontend URL**
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
