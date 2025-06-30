@@ -76,6 +76,23 @@ def get_user_profile(user_id: str):
 def update_user_profile(user_id: str, profile_data: dict):
     db = SessionLocal()
     try:
+        # Ensure array fields are properly formatted
+        if 'preferred_asset_types' in profile_data:
+            value = profile_data['preferred_asset_types']
+            if isinstance(value, str):
+                # Split comma-separated string into proper array
+                profile_data['preferred_asset_types'] = [item.strip() for item in value.split(',')]
+            elif not isinstance(value, list):
+                profile_data['preferred_asset_types'] = [str(value)] if value else []
+        
+        if 'investment_priorities' in profile_data:
+            value = profile_data['investment_priorities']
+            if isinstance(value, str):
+                # Split comma-separated string into proper array
+                profile_data['investment_priorities'] = [item.strip() for item in value.split(',')]
+            elif not isinstance(value, list):
+                profile_data['investment_priorities'] = [str(value)] if value else []
+
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         if profile:
             # Update existing profile

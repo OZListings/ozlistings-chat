@@ -131,7 +131,11 @@ class ProfileExtractor:
                             cleaned[key] = float(value)
                         elif expected_type == list:
                             if isinstance(value, str):
-                                cleaned[key] = [value]
+                                # Split comma-separated strings into array elements
+                                if ',' in value:
+                                    cleaned[key] = [item.strip() for item in value.split(',')]
+                                else:
+                                    cleaned[key] = [value]
                             elif isinstance(value, list):
                                 cleaned[key] = value
                             else:
