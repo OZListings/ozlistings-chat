@@ -12,7 +12,6 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 class ProfileExtractor:
     def __init__(self):
         self.profile_schema = {
-            "email": str,
             "accredited_investor": bool,
             "check_size": str,
             "geographical_zone": str,
