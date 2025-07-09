@@ -19,11 +19,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Ozlistings AI Agent")
 
+# Allow both deployed frontend and localhost for CORS
+allow_origins = [
+    "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app",
+    "http://localhost:3000"
+]
 frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],
+    allow_origins=allow_origins,  # Use the list for clarity
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
