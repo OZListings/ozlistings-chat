@@ -25,7 +25,7 @@ frontend_url = os.getenv("FRONTEND_URL", "https://ozlistings-chat-frontend-10987
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],
+    allow_origins=[frontend_url, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
