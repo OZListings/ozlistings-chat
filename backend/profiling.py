@@ -12,7 +12,6 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 class ProfileExtractor:
     def __init__(self):
         self.profile_schema = {
-            "email": str,
             "accredited_investor": bool,
             "check_size": str,
             "geographical_zone": str,
@@ -132,7 +131,11 @@ class ProfileExtractor:
                             cleaned[key] = float(value)
                         elif expected_type == list:
                             if isinstance(value, str):
-                                cleaned[key] = [value]
+                                # Split comma-separated strings into array elements
+                                if ',' in value:
+                                    cleaned[key] = [item.strip() for item in value.split(',')]
+                                else:
+                                    cleaned[key] = [value]
                             elif isinstance(value, list):
                                 cleaned[key] = value
                             else:
