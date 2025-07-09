@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
+import os
 
 from rag import get_response_from_gemini
 from profiling import update_profile, get_profile
@@ -19,11 +20,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Ozlistings AI Agent")
 
-frontend_url = "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app"
+# Get frontend URL from environment variable or use default
+frontend_url = os.getenv("FRONTEND_URL", "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],
+    allow_origins=[frontend_url, "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
