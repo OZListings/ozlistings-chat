@@ -8,8 +8,7 @@ steps:
     args: [
       'build',
       '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/ozlistings-backend/backend:$BUILD_ID',
-      '-f', 'backend/Dockerfile',
-      '.'
+      './backend'
     ]
 
   # Step 3: Push the Docker image to Artifact Registry
