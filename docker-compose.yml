@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   backend:
     build:
@@ -5,29 +7,46 @@ services:
       dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
-    env_file:
-      - ./backend/.env
-    volumes:
-      - ./data:/data/
     environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/ozlistings
+      - PORT=8000
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_HOST=${DB_HOST:-db}
+      - DB_NAME=${DB_NAME:-ozlistings}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3000:80"
+    environment:
+      - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL:-http://localhost:8000}
+    restart: unless-stopped
+
   db:
     image: postgres:14
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: ozlistings
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-ozlistings}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   pgdata:

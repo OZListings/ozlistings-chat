@@ -20,12 +20,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Ozlistings AI Agent")
 
-# Get frontend URL from environment variable or use default
-frontend_url = os.getenv("FRONTEND_URL", "https://ozlistings-chat-frontend-1098767556937.us-central1.run.app")
+# Get frontend URL from environment variable
+frontend_url = os.getenv("FRONTEND_URL")
+
+# Allow multiple origins - add your website's origin here
+allowed_origins = [
+    "http://localhost:3000",
+    "https://oz-dashboard-indol.vercel.app",  # Your Vercel-hosted website
+]
+
+# Add frontend_url if it's set via environment variable
+if frontend_url:
+    allowed_origins.append(frontend_url)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url, "http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
