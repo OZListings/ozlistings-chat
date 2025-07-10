@@ -16,8 +16,8 @@ RUN pip install -r requirements.txt
 # Copy the backend source code into the container
 COPY . .
 
-# Expose port 8000 for the FastAPI app
-EXPOSE 8000
+# Expose port (will be overridden by Cloud Run)
+EXPOSE 8080
 
-# Run the FastAPI app with auto-reload enabled
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI app using the PORT environment variable
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
