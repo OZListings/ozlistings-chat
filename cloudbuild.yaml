@@ -31,7 +31,7 @@ steps:
     - 'managed'
     - '--allow-unauthenticated'
     - '--set-env-vars'
-    - 'PORT=8080,FRONTEND_URL=https://oz-dashboard-indol.vercel.app'
+    - 'FRONTEND_URL=https://oz-dashboard-indol.vercel.app'
 
 images:
   - 'us-west1-docker.pkg.dev/$PROJECT_ID/ozlistings-backend/backend:$BUILD_ID'
