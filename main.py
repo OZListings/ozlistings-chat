@@ -68,6 +68,7 @@ class ChatResponse(BaseModel):
 @limiter.limit("10/minute")
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
+        logger.info(f"Chat request received - user_id: {chat_req.user_id}, message: {chat_req.message[:100]}...")
         response_text = await get_response_from_gemini(chat_req.user_id, chat_req.message)
         await update_profile(chat_req.user_id, chat_req.message)
         return {"response": response_text}
@@ -90,6 +91,7 @@ class ProfileUpdateResponse(BaseModel):
 @limiter.limit("10/minute")
 async def profile_endpoint(request: Request, profile_req: ProfileUpdateRequest):
     try:
+        logger.info(f"Profile request received - user_id: {profile_req.user_id}, message: {profile_req.message[:100]}...")
         updated_profile = await update_profile(profile_req.user_id, profile_req.message)
         return {"profile": updated_profile}
     except Exception as e:

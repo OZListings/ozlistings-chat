@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, ARRAY
+from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, ARRAY, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -26,7 +26,7 @@ class UserProfile(Base):
     __tablename__ = "user_profiles"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String, unique=True, index=True)
+    user_id = Column(UUID(as_uuid=True), unique=True, index=True)
     accredited_investor = Column(Boolean, nullable=True)
     check_size = Column(Text, nullable=True)
     geographical_zone = Column(Text, nullable=True)
@@ -48,7 +48,17 @@ def init_db():
 def get_user_profile(user_id: str):
     db = SessionLocal()
     try:
-        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        # Convert string to UUID if needed
+        if isinstance(user_id, str):
+            try:
+                user_uuid = uuid.UUID(user_id)
+            except ValueError:
+                # If it's not a valid UUID, treat it as email and hash it
+                user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
+        else:
+            user_uuid = user_id
+            
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_uuid).first()
         if profile:
             return {
                 'accredited_investor': profile.accredited_investor,
@@ -71,6 +81,16 @@ def get_user_profile(user_id: str):
 def update_user_profile(user_id: str, profile_data: dict):
     db = SessionLocal()
     try:
+        # Convert string to UUID if needed
+        if isinstance(user_id, str):
+            try:
+                user_uuid = uuid.UUID(user_id)
+            except ValueError:
+                # If it's not a valid UUID, treat it as email and hash it
+                user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
+        else:
+            user_uuid = user_id
+            
         if 'preferred_asset_types' in profile_data:
             value = profile_data['preferred_asset_types']
             if isinstance(value, str):
@@ -85,7 +105,7 @@ def update_user_profile(user_id: str, profile_data: dict):
             elif not isinstance(value, list):
                 profile_data['investment_priorities'] = [str(value)] if value else []
 
-        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_uuid).first()
         if profile:
             for key, value in profile_data.items():
                 if hasattr(profile, key):
@@ -93,7 +113,7 @@ def update_user_profile(user_id: str, profile_data: dict):
             profile.updated_at = datetime.utcnow()
         else:
             profile = UserProfile(
-                user_id=user_id,
+                user_id=user_uuid,
                 accredited_investor=profile_data.get('accredited_investor'),
                 check_size=profile_data.get('check_size'),
                 geographical_zone=profile_data.get('geographical_zone'),

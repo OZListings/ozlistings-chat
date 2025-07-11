@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from typing import Dict, List, Optional
 import os
 from datetime import datetime
@@ -7,8 +8,7 @@ import logging
 # Configure logging
 logger = logging.getLogger(__name__)
 
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-model = genai.GenerativeModel("gemini-2.0-flash")
+client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
 
 class ChatAgent:
     def __init__(self):
@@ -155,7 +155,11 @@ class ChatAgent:
         prompt = self._create_chat_prompt(user_id, message)
 
         try:
-            response = await model.generate_content_async(contents=prompt)
+            contents = [types.Content(role="user", parts=[types.Part(text=prompt)])]
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents
+            )
             response_text = response.text
 
             self.conversation_history[user_id].append({
