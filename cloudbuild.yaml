@@ -8,7 +8,7 @@ steps:
     args: [
       'build',
       '-t', 'us-west1-docker.pkg.dev/$PROJECT_ID/ozlistings-backend/backend:$BUILD_ID',
-      './backend'
+      '.'
     ]
 
   # Step 3: Push the Docker image to Artifact Registry
@@ -22,7 +22,7 @@ steps:
     args:
     - 'run'
     - 'deploy'
-    - 'ozlistings-chat-backend'
+    - 'ozlistings-chat'
     - '--image'
     - 'us-west1-docker.pkg.dev/$PROJECT_ID/ozlistings-backend/backend:$BUILD_ID'
     - '--region'
@@ -30,8 +30,6 @@ steps:
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
-    - '--set-env-vars'
-    - 'FRONTEND_URL=https://oz-dashboard-indol.vercel.app'
 
 images:
   - 'us-west1-docker.pkg.dev/$PROJECT_ID/ozlistings-backend/backend:$BUILD_ID'
