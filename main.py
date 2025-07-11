@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -54,7 +54,7 @@ def read_root():
     return {"message": "Welcome to Ozlistings AI Agent!"}
 
 class ChatRequest(BaseModel):
-    user_id: EmailStr
+    user_id: str
     message: str
 
     class Config:
@@ -76,7 +76,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 class ProfileUpdateRequest(BaseModel):
-    user_id: EmailStr
+    user_id: str
     message: str
 
     class Config:
@@ -98,7 +98,7 @@ async def profile_endpoint(request: Request, profile_req: ProfileUpdateRequest):
 
 @app.get("/profile/{user_id}")
 @limiter.limit("30/minute")
-def get_profile_endpoint(request: Request, user_id: EmailStr):
+def get_profile_endpoint(request: Request, user_id: str):
     try:
         profile = get_profile(user_id)
         if not profile:
