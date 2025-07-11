@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from typing import Dict, Optional, List
 import json
 import os
@@ -8,9 +9,6 @@ from database import get_user_profile, update_user_profile
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-model = genai.GenerativeModel("gemini-2.0-flash")
 
 class ProfileExtractor:
     def __init__(self):
@@ -27,56 +25,47 @@ class ProfileExtractor:
         }
         self.profile_keys = list(self.profile_schema.keys())
 
-        self.profile_tool = {
+        # Define the function schema for the Gemini function calling API
+        self.function_schema = {
             "name": "update_user_profile_json",
             "description": "Updates the user profile with extracted information. Always use this function to respond with profile updates.",
             "parameters": {
-                "type": "OBJECT",
+                "type": "object",
                 "properties": {
-                    key: {"type": self._python_type_to_json_type(value), "description": key}
-                    for key, value in self.profile_schema.items()
+                    "accredited_investor": {"type": "boolean", "description": "Whether the user is an accredited investor"},
+                    "check_size": {"type": "string", "description": "Investment check size or amount"},
+                    "geographical_zone": {"type": "string", "description": "Preferred geographical areas for investment"},
+                    "real_estate_investment_experience": {"type": "number", "description": "Years of real estate investment experience"},
+                    "investment_timeline": {"type": "string", "description": "Investment timeline or urgency"},
+                    "investment_priorities": {"type": "array", "items": {"type": "string"}, "description": "Investment priorities and goals"},
+                    "deal_readiness": {"type": "string", "description": "Current deal readiness status"},
+                    "preferred_asset_types": {"type": "array", "items": {"type": "string"}, "description": "Preferred real estate asset types"},
+                    "needs_team_contact": {"type": "boolean", "description": "Whether the user needs team contact or assistance"}
                 },
                 "required": self.profile_keys,
             },
         }
-        self.tools = [self.profile_tool]
 
-    def _python_type_to_json_type(self, python_type):
-        if python_type == str:
-            return "STRING"
-        elif python_type == int or python_type == float:
-            return "NUMBER"
-        elif python_type == bool:
-            return "BOOLEAN"
-        elif python_type == list:
-            return "ARRAY"
-        else:
-            return "STRING"
+        # Initialize the NEW SDK client and config
+        self.client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+        self.tools = types.Tool(function_declarations=[self.function_schema])
+        self.config = types.GenerateContentConfig(tools=[self.tools])
+
+
 
     def _get_extraction_prompt(self, message: str, current_profile: Dict) -> str:
         profile_fields_str = ", ".join(self.profile_keys)
+        
         return (
-            f"You are an expert profile extractor. Analyze the user message and update the user profile in JSON format.\n"
+            f"You are an expert profile extractor. Analyze the user message and update the user profile.\n"
             f"Current profile state: {json.dumps(current_profile, indent=2)}\n\n"
             f"User Message: \"{message}\"\n\n"
             f"Instructions:\n"
             f"1. Extract information for the following profile fields: {profile_fields_str}.\n"
             f"2. If information for a field is not found, use null or the appropriate default value according to the schema.\n"
-            f"3. Return ALL profile fields in the JSON, even if unchanged.\n"
-            f"4. Importantly, ALWAYS respond by calling the `update_user_profile_json` function with the extracted profile data as parameters in JSON format.\n"
-            f"5. Do not provide any conversational text or explanations, just the function call, and make sure the JSON is valid and parsable.\n"
-            f"Enclose your ENTIRE response in a JSON code block, starting with ```json and ending with ```.\n"
-            f"Example function call response format:\n"
-            f"```json\n"
-            f"{{\n"
-            f"  \"tool_calls\": [\n    {{\n"
-            f"      \"function\": {{\n"
-            f"        \"name\": \"update_user_profile_json\",\n"
-            f"        \"parameters\": {{ ...profile data in JSON format... }}\n"
-            f"      }}\n"
-            f"    }}\n"
-            f"  ]\n"
-            f"}}\n```\n"
+            f"3. Return ALL profile fields, even if unchanged.\n"
+            f"4. ALWAYS respond by calling the `update_user_profile_json` function with the extracted profile data.\n"
+            f"5. Ensure all required fields are included in the function call.\n"
             f"Begin profile extraction now."
         )
 
@@ -86,44 +75,51 @@ class ProfileExtractor:
 
         try:
             prompt = self._get_extraction_prompt(message, current_profile)
-            response = await model.generate_content_async(
-                contents=prompt,
-                tools=self.tools
+            
+            # NEW SDK API call
+            contents = [types.Content(role="user", parts=[types.Part(text=prompt)])]
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=self.config
             )
 
-            text_response = response.candidates[0].content.parts[0].text
-
-            if text_response.startswith("```json") and text_response.endswith("```"):
-                text_response = text_response[7:-3].strip()
-
-            try:
-                response_json = json.loads(text_response)
-                tool_calls = response_json.get("tool_calls", [])
-                if tool_calls:
-                    function_call_data = tool_calls[0].get("function", {})
-                    function_name = function_call_data.get("name")
-                    profile_args_str = function_call_data.get("parameters")
-
-                    if function_name == "update_user_profile_json" and profile_args_str:
-                        try:
-                            updated_profile = json.loads(json.dumps(profile_args_str))
-                            cleaned_profile = self._clean_profile(updated_profile)
+            # Check if the response contains function calls (NEW SDK way)
+            if response.candidates and response.candidates[0].content.parts:
+                for part in response.candidates[0].content.parts:
+                    if hasattr(part, 'function_call') and part.function_call:
+                        function_call = part.function_call
+                        if function_call.name == "update_user_profile_json":
+                            # Extract the arguments from the function call
+                            function_args = dict(function_call.args)
+                            
+                            cleaned_profile = self._clean_profile(function_args)
                             return cleaned_profile
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Error parsing function call arguments JSON: {e}")
+                        else:
+                            logger.warning(f"Unexpected function call: {function_call.name}")
                             return current_profile
-                    else:
-                        logger.warning("Function call structure invalid or incorrect function name.")
-                        return current_profile
-                else:
-                    logger.warning("No tool_calls found in Gemini JSON response.")
-                    return current_profile
-            except json.JSONDecodeError as e:
-                logger.error(f"Error parsing Gemini response TEXT as JSON: {e}")
+                    elif hasattr(part, 'text') and part.text:
+                        # Fallback: try to parse text response as JSON
+                        try:
+                            text_response = part.text.strip()
+                            if text_response.startswith("```json") and text_response.endswith("```"):
+                                text_response = text_response[7:-3].strip()
+                            
+                            response_json = json.loads(text_response)
+                            if isinstance(response_json, dict):
+                                cleaned_profile = self._clean_profile(response_json)
+                                return cleaned_profile
+                        except json.JSONDecodeError:
+                            pass
+                
+                logger.warning("No valid function call or parsable JSON found in response.")
+                return current_profile
+            else:
+                logger.error("No response candidates found.")
                 return current_profile
 
         except Exception as e:
-            logger.error(f"Error during profile extraction or function call handling: {e}")
+            logger.error(f"Error during profile extraction: {e}")
             return current_profile
 
     def _clean_profile(self, profile: Dict) -> Dict:
@@ -137,7 +133,8 @@ class ProfileExtractor:
                             cleaned[key] = bool(value)
                         elif expected_type == float:
                             cleaned[key] = float(value)
-                        elif expected_type == list:
+                        elif hasattr(expected_type, '__origin__') and expected_type.__origin__ == list:
+                            # Handle List[str] type
                             if isinstance(value, str):
                                 if ',' in value:
                                     cleaned[key] = [item.strip() for item in value.split(',')]

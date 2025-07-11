@@ -20,6 +20,7 @@ __pycache__/
 *.pyo
 *.pyd
 venv/
+.venv/*
 .env
 
 # Java
