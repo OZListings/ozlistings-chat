@@ -72,6 +72,7 @@ Health check
 ## Features
 
 - AI chat agent specialized in Opportunity Zone investments
+- **Temporal Constraints**: Only provides information valid after July 7, 2025 (Big Beautiful Bill)
 - Automatic user profile extraction from conversations
 - PostgreSQL database with Supabase
 - Google Cloud Run deployment
@@ -88,4 +89,16 @@ Health check
 - Environment variable validation
 - Structured logging
 - Error handling without data exposure
-- SSL database connections 
+- SSL database connections
+
+## Temporal Information Constraints
+
+The system is configured to only provide information that is valid **after July 7, 2025**, when the Big Beautiful Bill was passed into law. This ensures:
+
+- All responses reflect current legislation and regulations
+- Historical information requests are redirected to current benefits
+- Enhanced benefits under the Big Beautiful Bill are emphasized
+- Compliance with updated post-July 7, 2025 requirements
+- Focus on modernized tax advantages and incentives
+
+The AI assistant will automatically redirect any requests for pre-July 7, 2025 information to current benefits and regulations under the new framework. 

@@ -1,4 +1,6 @@
-from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, ARRAY, UUID
+# database.py
+
+from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, Integer, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -6,6 +8,7 @@ import os
 from dotenv import load_dotenv
 import uuid
 import logging
+import enum
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -22,54 +25,91 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# Enums for strict validation
+class UserRole(enum.Enum):
+    DEVELOPER = "Developer"
+    INVESTOR = "Investor"
+
+class CapGainTime(enum.Enum):
+    LAST_180_DAYS = "Last 180 days"
+    MORE_THAN_180_DAYS = "More than 180 days AGO"
+    INCOMING = "Upcoming"
+
+# US State codes for validation
+US_STATES = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY', 'DC'
+]
+
 class UserProfile(Base):
     __tablename__ = "user_profiles"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(UUID(as_uuid=True), unique=True, index=True)
-    accredited_investor = Column(Boolean, nullable=True)
-    check_size = Column(Text, nullable=True)
-    geographical_zone = Column(Text, nullable=True)
-    real_estate_investment_experience = Column(Float, nullable=True)
-    investment_timeline = Column(Text, nullable=True)
-    investment_priorities = Column(ARRAY(Text), nullable=True)
-    deal_readiness = Column(Text, nullable=True)
-    preferred_asset_types = Column(ARRAY(Text), nullable=True)
-    needs_team_contact = Column(Boolean, nullable=True)
+    user_id = Column(String, unique=True, index=True)  # Store email directly
+    
+    # Core fields
+    role = Column(SQLEnum(UserRole), nullable=True)
+    
+    # Investor-specific fields
+    cap_gain_or_not = Column(Boolean, nullable=True)  # Only for investors
+    size_of_cap_gain = Column(String, nullable=True)  # Format: "100,000" - will be converted to numeric
+    time_of_cap_gain = Column(SQLEnum(CapGainTime), nullable=True)
+    geographical_zone_of_investment = Column(String, nullable=True)  # State code or region
+    
+    # Developer-specific fields
+    location_of_development = Column(Text, nullable=True)  # Address or coordinates
+    
+    # Common fields
+    need_team_contact = Column(Boolean, default=False)
+    
+    # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 def init_db():
     try:
+        Base.metadata.create_all(bind=engine)
         logger.info("Database initialization complete.")
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
 
+def validate_state_code(state_code: str) -> bool:
+    """Validate US state code"""
+    return state_code.upper() in US_STATES
+
+def format_currency(value: str) -> str:
+    """Format currency value to standard format (e.g., 100,000)"""
+    try:
+        # Remove any non-numeric characters
+        cleaned = ''.join(filter(str.isdigit, value))
+        if cleaned:
+            # Format with commas
+            return f"{int(cleaned):,}"
+        return None
+    except:
+        return None
+
 def get_user_profile(user_id: str):
     db = SessionLocal()
     try:
-        # Convert string to UUID if needed
-        if isinstance(user_id, str):
-            try:
-                user_uuid = uuid.UUID(user_id)
-            except ValueError:
-                # If it's not a valid UUID, treat it as email and hash it
-                user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
-        else:
-            user_uuid = user_id
-            
-        profile = db.query(UserProfile).filter(UserProfile.user_id == user_uuid).first()
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        
         if profile:
             return {
-                'accredited_investor': profile.accredited_investor,
-                'check_size': profile.check_size,
-                'geographical_zone': profile.geographical_zone,
-                'real_estate_investment_experience': profile.real_estate_investment_experience,
-                'investment_timeline': profile.investment_timeline,
-                'investment_priorities': profile.investment_priorities,
-                'deal_readiness': profile.deal_readiness,
-                'preferred_asset_types': profile.preferred_asset_types,
-                'needs_team_contact': profile.needs_team_contact
+                'id': str(profile.id) if profile.id else None,
+                'user_id': str(profile.user_id) if profile.user_id else None,
+                'role': profile.role.value if profile.role else None,
+                'cap_gain_or_not': profile.cap_gain_or_not,
+                'size_of_cap_gain': profile.size_of_cap_gain,
+                'time_of_cap_gain': profile.time_of_cap_gain.value if profile.time_of_cap_gain else None,
+                'geographical_zone_of_investment': profile.geographical_zone_of_investment,
+                'location_of_development': profile.location_of_development,
+                'need_team_contact': profile.need_team_contact,
+                'created_at': profile.created_at.isoformat() if profile.created_at else None,
+                'updated_at': profile.updated_at.isoformat() if profile.updated_at else None
             }
         return None
     except Exception as e:
@@ -78,56 +118,141 @@ def get_user_profile(user_id: str):
     finally:
         db.close()
 
+def increment_message_count(user_id: str):
+    """Increment message count and update last session time"""
+    db = SessionLocal()
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+        
+        if profile:
+            # For now, just update the need_team_contact flag after a few interactions
+            # Since we don't have message_count in the current schema
+            profile.need_team_contact = True
+            profile.updated_at = datetime.utcnow()
+            
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error incrementing message count: {e}")
+        return False
+    finally:
+        db.close()
+
 def update_user_profile(user_id: str, profile_data: dict):
     db = SessionLocal()
     try:
-        # Convert string to UUID if needed
-        if isinstance(user_id, str):
-            try:
-                user_uuid = uuid.UUID(user_id)
-            except ValueError:
-                # If it's not a valid UUID, treat it as email and hash it
-                user_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, user_id)
-        else:
-            user_uuid = user_id
-            
-        if 'preferred_asset_types' in profile_data:
-            value = profile_data['preferred_asset_types']
-            if isinstance(value, str):
-                profile_data['preferred_asset_types'] = [item.strip() for item in value.split(',')]
-            elif not isinstance(value, list):
-                profile_data['preferred_asset_types'] = [str(value)] if value else []
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         
-        if 'investment_priorities' in profile_data:
-            value = profile_data['investment_priorities']
-            if isinstance(value, str):
-                profile_data['investment_priorities'] = [item.strip() for item in value.split(',')]
-            elif not isinstance(value, list):
-                profile_data['investment_priorities'] = [str(value)] if value else []
-
-        profile = db.query(UserProfile).filter(UserProfile.user_id == user_uuid).first()
+        # Validate and clean data based on role
+        if 'role' in profile_data and profile_data['role']:
+            try:
+                profile_data['role'] = UserRole(profile_data['role'])
+            except ValueError:
+                logger.error(f"Invalid role: {profile_data['role']}")
+                del profile_data['role']
+        
+        # Handle investor-specific fields
+        if profile and profile.role == UserRole.INVESTOR:
+            if 'geographical_zone_of_investment' in profile_data:
+                state = profile_data['geographical_zone_of_investment']
+                if state and not validate_state_code(state):
+                    logger.error(f"Invalid state code: {state}")
+                    del profile_data['geographical_zone_of_investment']
+                else:
+                    profile_data['geographical_zone_of_investment'] = state.upper()
+            
+            if 'size_of_cap_gain' in profile_data:
+                # Convert string to numeric for database
+                try:
+                    # Remove commas and convert to float
+                    value_str = str(profile_data['size_of_cap_gain']).replace(',', '')
+                    numeric_value = float(value_str)
+                    profile_data['size_of_cap_gain'] = numeric_value
+                except (ValueError, TypeError):
+                    logger.error(f"Invalid size_of_cap_gain value: {profile_data['size_of_cap_gain']}")
+                    del profile_data['size_of_cap_gain']
+            
+            if 'time_of_cap_gain' in profile_data:
+                try:
+                    profile_data['time_of_cap_gain'] = CapGainTime(profile_data['time_of_cap_gain'])
+                except ValueError:
+                    logger.error(f"Invalid cap gain time: {profile_data['time_of_cap_gain']}")
+                    del profile_data['time_of_cap_gain']
+        
+        # Handle role-specific constraints
+        current_role = profile.role if profile else None
+        new_role = profile_data.get('role')
+        role_to_check = new_role if new_role else current_role
+        
+        if role_to_check:
+            if role_to_check == UserRole.DEVELOPER:
+                # For developers, ensure location_of_development is set
+                if 'location_of_development' not in profile_data or not profile_data.get('location_of_development'):
+                    profile_data['location_of_development'] = 'Location to be determined'
+                # Clear investor-specific fields
+                profile_data.update({
+                    'cap_gain_or_not': None,
+                    'size_of_cap_gain': None,
+                    'time_of_cap_gain': None,
+                    'geographical_zone_of_investment': None
+                })
+            elif role_to_check == UserRole.INVESTOR:
+                # For investors, ensure cap_gain_or_not is set and location is NULL
+                if 'cap_gain_or_not' not in profile_data:
+                    profile_data['cap_gain_or_not'] = False
+                # Clear developer-specific fields - this is required by constraint
+                profile_data['location_of_development'] = None
+        else:
+            # If no role is set, ensure location is NULL to satisfy constraint
+            profile_data['location_of_development'] = None
+        
         if profile:
             for key, value in profile_data.items():
                 if hasattr(profile, key):
                     setattr(profile, key, value)
             profile.updated_at = datetime.utcnow()
         else:
+            # Create new profile
             profile = UserProfile(
-                user_id=user_uuid,
-                accredited_investor=profile_data.get('accredited_investor'),
-                check_size=profile_data.get('check_size'),
-                geographical_zone=profile_data.get('geographical_zone'),
-                real_estate_investment_experience=profile_data.get('real_estate_investment_experience'),
-                investment_timeline=profile_data.get('investment_timeline'),
-                investment_priorities=profile_data.get('investment_priorities'),
-                deal_readiness=profile_data.get('deal_readiness'),
-                preferred_asset_types=profile_data.get('preferred_asset_types'),
-                needs_team_contact=profile_data.get('needs_team_contact')
+                user_id=user_id,
+                **profile_data
             )
             db.add(profile)
+        
         db.commit()
     except Exception as e:
         logger.error(f"Error updating user profile: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def migrate_existing_profiles():
+    """Migrate existing profiles to new schema"""
+    db = SessionLocal()
+    try:
+        # Get all existing profiles
+        profiles = db.query(UserProfile).all()
+        
+        for profile in profiles:
+            # Attempt to infer role from existing data
+            if hasattr(profile, 'preferred_asset_types') and profile.preferred_asset_types:
+                # If they have asset preferences, likely an investor
+                profile.role = UserRole.INVESTOR
+            elif hasattr(profile, 'deal_readiness') and profile.deal_readiness:
+                # Could be either, default to investor
+                profile.role = UserRole.INVESTOR
+            
+            # Reset message count
+            profile.message_count = 0
+            profile.needs_team_contact = False
+            
+            # Clear old fields by setting to None (you might need to drop columns in production)
+        
+        db.commit()
+        logger.info(f"Migrated {len(profiles)} profiles to new schema")
+    except Exception as e:
+        logger.error(f"Error migrating profiles: {e}")
         db.rollback()
     finally:
         db.close()

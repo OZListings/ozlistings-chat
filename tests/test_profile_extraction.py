@@ -4,14 +4,20 @@ import asyncio
 import os
 import sys
 import json
+import uuid
 from typing import Dict, List
 from dotenv import load_dotenv
+
+# Add parent directory to Python path to import profiling module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Load environment variables
 load_dotenv()
 
 # Import the profile extraction logic
 from profiling import ProfileExtractor, profile_extractor
+from database import engine
+from sqlalchemy import text
 
 class ProfileExtractionTester:
     def __init__(self):
@@ -85,18 +91,46 @@ class ProfileExtractionTester:
         
         return extracted_fields
     
+    async def create_test_user(self, user_id: str):
+        """Create a test user in auth.users table"""
+        try:
+            with engine.connect() as conn:
+                conn.execute(text(f"""
+                    INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+                    VALUES ('{user_id}', 'test-{user_id}@example.com', '', NOW(), NOW(), NOW())
+                    ON CONFLICT (id) DO NOTHING
+                """))
+                conn.commit()
+        except Exception as e:
+            print(f"Error creating test user: {e}")
+
+    async def cleanup_test_user(self, user_id: str):
+        """Clean up test user data"""
+        try:
+            with engine.connect() as conn:
+                # Clean up profile
+                conn.execute(text(f"DELETE FROM user_profiles WHERE user_id = '{user_id}'"))
+                # Clean up auth user
+                conn.execute(text(f"DELETE FROM auth.users WHERE id = '{user_id}'"))
+                conn.commit()
+        except Exception as e:
+            print(f"Error cleaning up test user: {e}")
+
     async def run_single_test(self, test_case: Dict) -> Dict:
         """Run a single test case"""
         self.print_test_case(test_case)
         
-        # Start with empty profile
-        current_profile = {}
+        # Use a test user ID
+        test_user_id = str(uuid.uuid4())
+        
+        # Create test user
+        await self.create_test_user(test_user_id)
         
         try:
             # Extract profile information
             extracted_profile = await profile_extractor.extract_profile_updates(
                 test_case["message"], 
-                current_profile
+                test_user_id
             )
             
             extracted_fields = self.print_results(extracted_profile, test_case["expected_fields"])
@@ -118,6 +152,9 @@ class ProfileExtractionTester:
                 "extracted_fields": [],
                 "expected_fields": test_case["expected_fields"]
             }
+        finally:
+            # Clean up test user
+            await self.cleanup_test_user(test_user_id)
     
     async def run_all_tests(self):
         """Run all test cases"""
