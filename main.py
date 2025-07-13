@@ -1,13 +1,17 @@
+# main.py
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from contextlib import asynccontextmanager
 import logging
 import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from typing import Optional, Dict, Any
+from datetime import datetime
 
 from rag import get_response_from_gemini
 from profiling import update_profile, get_profile
@@ -57,21 +61,50 @@ class ChatRequest(BaseModel):
     user_id: str
     message: str
 
-    class Config:
-        min_anystr_length = 1
-        max_anystr_length = 1000
+    @validator('user_id')
+    def validate_user_id(cls, v):
+        if not v or len(v) < 3:
+            raise ValueError('Invalid user_id')
+        return v
+
+    @validator('message')
+    def validate_message(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Message cannot be empty')
+        if len(v) > 1000:
+            raise ValueError('Message too long (max 1000 characters)')
+        return v.strip()
 
 class ChatResponse(BaseModel):
     response: str
+    profile_updated: bool = False
+    actions_triggered: Optional[list] = None
 
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit("10/minute")
 async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
         logger.info(f"Chat request received - user_id: {chat_req.user_id}, message: {chat_req.message[:100]}...")
+        
+        # Get response (which also updates profile internally)
         response_text = await get_response_from_gemini(chat_req.user_id, chat_req.message)
-        await update_profile(chat_req.user_id, chat_req.message)
-        return {"response": response_text}
+        
+        # Get profile update result for additional info
+        profile_result = await update_profile(chat_req.user_id, chat_req.message)
+        
+        # Check for security flags
+        if profile_result.get('status') == 'security_warning':
+            logger.warning(f"Security warning for user {chat_req.user_id}")
+            # Continue with response but log the attempt
+        
+        return {
+            "response": response_text,
+            "profile_updated": bool(profile_result.get('updates')),
+            "actions_triggered": profile_result.get('actions', [])
+        }
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -80,20 +113,43 @@ class ProfileUpdateRequest(BaseModel):
     user_id: str
     message: str
 
-    class Config:
-        min_anystr_length = 1
-        max_anystr_length = 1000
+    @validator('user_id')
+    def validate_user_id(cls, v):
+        if not v or len(v) < 3:
+            raise ValueError('Invalid user_id')
+        return v
+
+    @validator('message')
+    def validate_message(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Message cannot be empty')
+        return v.strip()
 
 class ProfileUpdateResponse(BaseModel):
-    profile: dict
+    profile: Dict[str, Any]
+    status: str
+    message_count: Optional[int] = None
 
 @app.post("/profile", response_model=ProfileUpdateResponse)
 @limiter.limit("10/minute")
 async def profile_endpoint(request: Request, profile_req: ProfileUpdateRequest):
     try:
         logger.info(f"Profile request received - user_id: {profile_req.user_id}, message: {profile_req.message[:100]}...")
-        updated_profile = await update_profile(profile_req.user_id, profile_req.message)
-        return {"profile": updated_profile}
+        
+        # Update profile based on message
+        result = await update_profile(profile_req.user_id, profile_req.message)
+        
+        # Get updated profile
+        updated_profile = get_profile(profile_req.user_id)
+        
+        return {
+            "profile": updated_profile,
+            "status": result.get('status', 'success'),
+            "message_count": result.get('message_count')
+        }
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Profile endpoint error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -102,6 +158,10 @@ async def profile_endpoint(request: Request, profile_req: ProfileUpdateRequest):
 @limiter.limit("30/minute")
 def get_profile_endpoint(request: Request, user_id: str):
     try:
+        # Validate user_id
+        if not user_id or len(user_id) < 3:
+            raise HTTPException(status_code=400, detail="Invalid user_id")
+        
         profile = get_profile(user_id)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
@@ -111,3 +171,12 @@ def get_profile_endpoint(request: Request, user_id: str):
     except Exception as e:
         logger.error(f"Get profile endpoint error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# Health check endpoint
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "2.0.0"  # Updated version
+    }
