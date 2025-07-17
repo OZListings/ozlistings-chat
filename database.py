@@ -1,6 +1,7 @@
 # database.py
 
-from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, Integer, Enum as SQLEnum
+from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Text, Float, Integer, Enum as SQLEnum, Numeric
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -45,19 +46,19 @@ US_STATES = [
 ]
 
 class UserProfile(Base):
-    __tablename__ = "user_profiles"
+    __tablename__ = "ozzie_user_profiles"
     
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
-    user_id = Column(String, unique=True, index=True)  # Store email directly
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), unique=True, index=True)
     
     # Core fields
-    role = Column(SQLEnum(UserRole), nullable=True)
+    role = Column(SQLEnum(UserRole, name="userrole"), nullable=True)
     
     # Investor-specific fields
-    cap_gain_or_not = Column(Boolean, nullable=True)  # Only for investors
-    size_of_cap_gain = Column(String, nullable=True)  # Format: "100,000" - will be converted to numeric
-    time_of_cap_gain = Column(SQLEnum(CapGainTime), nullable=True)
-    geographical_zone_of_investment = Column(String, nullable=True)  # State code or region
+    cap_gain_or_not = Column(Boolean, nullable=True)
+    size_of_cap_gain = Column(Numeric, nullable=True) # Changed from String to Numeric
+    time_of_cap_gain = Column(SQLEnum(CapGainTime, name="capgaintime"), nullable=True)
+    geographical_zone_of_investment = Column(String, nullable=True)
     
     # Developer-specific fields
     location_of_development = Column(Text, nullable=True)  # Address or coordinates
@@ -92,7 +93,7 @@ def format_currency(value: str) -> str:
     except:
         return None
 
-def get_user_profile(user_id: str):
+def get_user_profile(user_id: uuid.UUID):
     db = SessionLocal()
     try:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
@@ -103,7 +104,7 @@ def get_user_profile(user_id: str):
                 'user_id': str(profile.user_id) if profile.user_id else None,
                 'role': profile.role.value if profile.role else None,
                 'cap_gain_or_not': profile.cap_gain_or_not,
-                'size_of_cap_gain': profile.size_of_cap_gain,
+                'size_of_cap_gain': str(profile.size_of_cap_gain) if profile.size_of_cap_gain is not None else None,
                 'time_of_cap_gain': profile.time_of_cap_gain.value if profile.time_of_cap_gain else None,
                 'geographical_zone_of_investment': profile.geographical_zone_of_investment,
                 'location_of_development': profile.location_of_development,
@@ -118,7 +119,7 @@ def get_user_profile(user_id: str):
     finally:
         db.close()
 
-def increment_message_count(user_id: str):
+def increment_message_count(user_id: uuid.UUID):
     """Increment message count and update last session time"""
     db = SessionLocal()
     try:
@@ -139,7 +140,7 @@ def increment_message_count(user_id: str):
     finally:
         db.close()
 
-def update_user_profile(user_id: str, profile_data: dict):
+def update_user_profile(user_id: uuid.UUID, profile_data: dict):
     db = SessionLocal()
     try:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
@@ -153,7 +154,7 @@ def update_user_profile(user_id: str, profile_data: dict):
                 del profile_data['role']
         
         # Handle investor-specific fields
-        if profile and profile.role == UserRole.INVESTOR:
+        if profile and profile.role == UserRole.INVESTOR or (not profile and profile_data.get('role') == 'Investor'):
             if 'geographical_zone_of_investment' in profile_data:
                 state = profile_data['geographical_zone_of_investment']
                 if state and not validate_state_code(state):
@@ -162,7 +163,7 @@ def update_user_profile(user_id: str, profile_data: dict):
                 else:
                     profile_data['geographical_zone_of_investment'] = state.upper()
             
-            if 'size_of_cap_gain' in profile_data:
+            if 'size_of_cap_gain' in profile_data and profile_data['size_of_cap_gain'] is not None:
                 # Convert string to numeric for database
                 try:
                     # Remove commas and convert to float
@@ -213,9 +214,9 @@ def update_user_profile(user_id: str, profile_data: dict):
                     setattr(profile, key, value)
             profile.updated_at = datetime.utcnow()
         else:
-            # Create new profile
+            # Create new profile, ensuring UUID is passed correctly
+            profile_data['user_id'] = user_id
             profile = UserProfile(
-                user_id=user_id,
                 **profile_data
             )
             db.add(profile)

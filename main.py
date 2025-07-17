@@ -12,6 +12,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from typing import Optional, Dict, Any
 from datetime import datetime
+import uuid
 
 from rag import get_response_from_gemini
 from profiling import update_profile, get_profile
@@ -58,14 +59,15 @@ def read_root():
     return {"message": "Welcome to Ozlistings AI Agent!"}
 
 class ChatRequest(BaseModel):
-    user_id: str
+    user_id: uuid.UUID
     message: str
 
-    @validator('user_id')
+    @validator('user_id', pre=True)
     def validate_user_id(cls, v):
-        if not v or len(v) < 3:
-            raise ValueError('Invalid user_id')
-        return v
+        try:
+            return uuid.UUID(v)
+        except ValueError:
+            raise ValueError('Invalid user_id format')
 
     @validator('message')
     def validate_message(cls, v):
@@ -110,14 +112,15 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 class ProfileUpdateRequest(BaseModel):
-    user_id: str
+    user_id: uuid.UUID
     message: str
 
-    @validator('user_id')
+    @validator('user_id', pre=True)
     def validate_user_id(cls, v):
-        if not v or len(v) < 3:
-            raise ValueError('Invalid user_id')
-        return v
+        try:
+            return uuid.UUID(v)
+        except ValueError:
+            raise ValueError('Invalid user_id format')
 
     @validator('message')
     def validate_message(cls, v):
@@ -159,10 +162,12 @@ async def profile_endpoint(request: Request, profile_req: ProfileUpdateRequest):
 def get_profile_endpoint(request: Request, user_id: str):
     try:
         # Validate user_id
-        if not user_id or len(user_id) < 3:
-            raise HTTPException(status_code=400, detail="Invalid user_id")
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid user_id format")
         
-        profile = get_profile(user_id)
+        profile = get_profile(user_uuid)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         return profile

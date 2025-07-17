@@ -7,6 +7,7 @@ import json
 import os
 import logging
 import re
+import uuid
 
 from database import get_user_profile, update_user_profile, increment_message_count, UserRole, CapGainTime, US_STATES
 
@@ -113,10 +114,10 @@ EXTRACTION RULES (ABSOLUTE):
 1. EXTRACT ONLY WHAT IS EXPLICITLY STATED. Do not infer, guess, or ask for clarification. If the information is not in the message, do not call a function for it.
 2. ADHERE STRICTLY TO THE SCHEMA. Only extract data that directly corresponds to a field in the `update_user_profile` function.
 
-3. ROLE DETECTION:
-   - A user is a 'Developer' if they talk about building, construction, or specific development projects.
-   - A user is an 'Investor' if they talk about investing capital, returns, or buying into funds/properties.
-   - Do not assign a role without clear evidence.
+3. ROLE DETECTION (BE CONSERVATIVE):
+   - **Do not assign a role unless there is clear, unmistakable evidence.** It is better to leave the role as `null` than to guess incorrectly.
+   - Assign 'Developer' ONLY if the user uses words like "build," "construct," "develop," "break ground," or mentions a specific "project."
+   - Assign 'Investor' ONLY if the user uses words like "invest," "capital gains," "returns," "my portfolio," or "deploy capital."
 
 4. INVESTOR-SPECIFIC FIELDS (Only extract if role is clearly 'Investor'):
    - cap_gain_or_not: Must be a clear 'yes' or 'no'.
@@ -130,7 +131,7 @@ EXTRACTION RULES (ABSOLUTE):
 
 Your task is to analyze the "User Message" and determine if any information can be used to call the `update_user_profile` function. If so, call it with ONLY the data present in the message."""
 
-    async def extract_profile_updates(self, message: str, user_id: str) -> Dict:
+    async def extract_profile_updates(self, message: str, user_id: uuid.UUID) -> Dict:
         # Get current profile and increment message count
         current_profile = get_user_profile(user_id) or {}
         message_count = increment_message_count(user_id)
@@ -240,7 +241,7 @@ Your task is to analyze the "User Message" and determine if any information can 
 
 profile_extractor = ProfileExtractor()
 
-async def update_profile(user_id: str, message: str) -> Dict:
+async def update_profile(user_id: uuid.UUID, message: str) -> Dict:
     """Main entry point for profile updates"""
     result = await profile_extractor.extract_profile_updates(message, user_id)
     
@@ -258,7 +259,7 @@ async def update_profile(user_id: str, message: str) -> Dict:
         'message_count': result.get('message_count', 0)
     }
 
-def get_profile(user_id: str) -> Dict:
+def get_profile(user_id: uuid.UUID) -> Dict:
     """Get user profile"""
     profile_data = get_user_profile(user_id)
     return profile_data if profile_data else {}
