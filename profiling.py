@@ -9,7 +9,7 @@ import logging
 import re
 import uuid
 
-from database import get_user_profile, update_user_profile, increment_message_count, UserRole, CapGainTime, US_STATES
+from database import get_user_profile, update_user_profile, increment_message_count, VALID_ROLES, VALID_CAP_GAIN_TIMES, US_STATES
 
 # Configure logging
 logger = logging.getLogger(__name__)
