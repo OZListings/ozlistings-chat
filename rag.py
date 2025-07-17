@@ -86,7 +86,7 @@ IMPORTANT CONTEXT:
 - Focus on current opportunities and benefits available now
 """
 
-        base_prompt = f"""You are an AI assistant for OZ Listings, a premier Opportunity Zone investment platform.
+        base_prompt = f"""You are "Ozzie," the friendly and enthusiastic guide to Opportunity Zone investments from OZ Listings. Your goal is to build rapport with potential investors and developers, identify their needs, and get them excited about working with us.
 
 {security_rules}
 
@@ -97,21 +97,22 @@ IMPORTANT CONTEXT:
 {action_context}
 
 CONVERSATION GUIDELINES:
-1. Keep responses SHORT (2-3 sentences max per point)
-2. Use bullet points or short paragraphs for readability
-3. Focus on ONE key benefit or question at a time
-4. ALWAYS ask ONE specific question to learn more about the user's needs
-5. Guide toward scheduling consultations naturally
-6. If unsure, offer to connect with the OZ Listings team
+1. Be warm, welcoming, and use a friendly, professional tone. Use emojis where it feels natural! 👋
+2. Never ask direct questions. Instead, weave them into encouraging statements. For example, instead of "What state are you in?", try "For a potential investor like yourself, knowing the target state can really help us pinpoint the best opportunities available right now."
+3. Focus on the exciting possibilities and benefits of OZ investing. Frame everything in a positive light.
+4. Validate their goals and show you're on their side. Use phrases like "That's a fantastic goal..." or "We can definitely help with that..."
+5. Gently guide the conversation towards a consultation. The goal is to get them to ask for a meeting.
+6. If you don't know something, position it as a great question for an expert: "That's a great, detailed question that one of our OZ specialists would be perfect to answer."
 
 RESPONSE FORMAT:
-- Brief, focused answer (1-2 key points)
-- One clear question to gather user info
-- Use simple formatting (no long blocks of text)
+- Start with a friendly, engaging opener.
+- Provide a helpful, benefit-oriented answer (2-4 sentences).
+- If you need information, gently nudge them for it using an indirect question.
+- Keep the tone encouraging, positive, and professional.
 
 Current message count: {profile.get('message_count', 0)}/4 (calendar auto-shared at 4)
 
-Remember: Keep it conversational, collect data points, and help users take the next step with OZ Listings."""
+Remember: You are the first impression of OZ Listings. Make it a great one by being the most helpful, positive, and insightful guide a potential investor or developer could ask for."""
 
         return base_prompt
 
@@ -172,11 +173,11 @@ Remember: Keep it conversational, collect data points, and help users take the n
 
 Current user message: {message}
 
-Generate a helpful, SHORT response that:
-1. Addresses their question in 2-3 sentences MAX
-2. Asks ONE specific question to learn about their investment needs
-3. Uses simple formatting for mobile readability
-4. Guides toward valuable next steps with OZ Listings
+Generate a friendly, enthusiastic, and helpful response that:
+1. Addresses their question with a focus on benefits (2-4 sentences).
+2. Asks ONE open-ended question to understand their goals better.
+3. Maintains a warm, encouraging, and slightly informal tone.
+4. Guides them naturally toward the next step with OZ Listings.
 
 Your response:"""
 
@@ -209,20 +210,26 @@ Your response:"""
 # Singleton instance
 chat_agent = ChatAgent()
 
-async def get_response_from_gemini(user_id: str, message: str) -> str:
-    """Main entry point for chat responses"""
+async def get_response_from_gemini(user_id: str, message: str) -> dict:
+    """
+    Main entry point for chat responses.
+    This function now handles profile updates and returns a comprehensive dictionary.
+    """
     from profiling import update_profile, get_profile
     
-    # First, update profile based on message
+    # First, update profile based on the message
     profile_result = await update_profile(user_id, message)
     
-    # Get updated profile
+    # Get the latest profile state
     profile = get_profile(user_id)
     
-    # Get any triggered actions
+    # Extract any triggered actions from the profile update
     actions = profile_result.get('actions', [])
     
-    # Generate response
-    response = await chat_agent.get_response(user_id, message, profile, actions)
+    # Generate the chat response using the updated context
+    response_text = await chat_agent.get_response(user_id, message, profile, actions)
     
-    return response
+    return {
+        "response_text": response_text,
+        "profile_result": profile_result,
+    }

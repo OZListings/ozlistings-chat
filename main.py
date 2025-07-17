@@ -86,11 +86,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
         logger.info(f"Chat request received - user_id: {chat_req.user_id}, message: {chat_req.message[:100]}...")
         
-        # Get response (which also updates profile internally)
-        response_text = await get_response_from_gemini(chat_req.user_id, chat_req.message)
+        # This single call now handles both profile updates and response generation
+        result = await get_response_from_gemini(chat_req.user_id, chat_req.message)
         
-        # Get profile update result for additional info
-        profile_result = await update_profile(chat_req.user_id, chat_req.message)
+        response_text = result["response_text"]
+        profile_result = result["profile_result"]
         
         # Check for security flags
         if profile_result.get('status') == 'security_warning':
