@@ -86,7 +86,7 @@ Use the exact format above: [**Schedule a Call**]({get_calendar_link()})
         conversation_guidance = f"""
 CONVERSATION STYLE:
 
-KEEP RESPONSES SHORT (2-3 sentences max for simple questions, 1 paragraph for complex ones)
+KEEP RESPONSES SHORT (4-5 sentences max for simple questions, 1-2 paragraph for complex ones)
 
 ALWAYS POSITIVE:
 ✅ Focus on benefits, opportunities, advantages
