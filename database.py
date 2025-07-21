@@ -59,6 +59,8 @@ class UserProfile(Base):
     
     # Common fields
     need_team_contact = Column(Boolean, default=False)
+    message_count = Column(Integer, default=0)  # ADDED: Track message count
+    last_session_at = Column(DateTime, default=datetime.utcnow)  # ADDED: Track session timing
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -131,6 +133,8 @@ def get_user_profile(user_id: uuid.UUID):
                 'geographical_zone_of_investment': profile.geographical_zone_of_investment,
                 'location_of_development': profile.location_of_development,
                 'need_team_contact': profile.need_team_contact,
+                'message_count': profile.message_count or 0,  # ADDED: Include message count
+                'last_session_at': profile.last_session_at.isoformat() if profile.last_session_at else None,  # ADDED: Include session timing
                 'created_at': profile.created_at.isoformat() if profile.created_at else None,
                 'updated_at': profile.updated_at.isoformat() if profile.updated_at else None
             }
@@ -142,23 +146,40 @@ def get_user_profile(user_id: uuid.UUID):
         db.close()
 
 def increment_message_count(user_id: uuid.UUID):
-    """Increment message count and update last session time"""
+    """Increment message count and update last session time, return current count"""
     db = SessionLocal()
     try:
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         
         if profile:
-            # Update the timestamp and set need_team_contact after several interactions
-            profile.updated_at = datetime.utcnow()
-            # Simple logic: if they've been chatting, they might need contact
-            profile.need_team_contact = True
+            # Check if this is a new session (more than 30 minutes since last activity)
+            now = datetime.utcnow()
+            if profile.last_session_at and (now - profile.last_session_at).total_seconds() > 1800:  # 30 minutes
+                # Reset message count for new session
+                profile.message_count = 1
+            else:
+                # Increment count for ongoing session
+                profile.message_count = (profile.message_count or 0) + 1
+            
+            profile.last_session_at = now
+            profile.updated_at = now
             
             db.commit()
-            return True
-        return False
+            return profile.message_count
+        else:
+            # Create new profile with message count 1
+            create_auth_user_if_needed(user_id)
+            new_profile = UserProfile(
+                user_id=user_id,
+                message_count=1,
+                last_session_at=datetime.utcnow()
+            )
+            db.add(new_profile)
+            db.commit()
+            return 1
     except Exception as e:
         logger.error(f"Error incrementing message count: {e}")
-        return False
+        return 0
     finally:
         db.close()
 
@@ -199,8 +220,8 @@ def update_user_profile(user_id: uuid.UUID, profile_data: dict):
         # Handle geographic zone (must be 2-letter state code)
         if 'geographical_zone_of_investment' in profile_data and profile_data['geographical_zone_of_investment']:
             state = str(profile_data['geographical_zone_of_investment']).strip().upper()
-            if len(state) == 2 and state in US_STATES:
-                cleaned_data['geographical_zone_of_investment'] = state
+            if len(state) == 2 and state.upper() in US_STATES:
+                cleaned_data['geographical_zone_of_investment'] = state.upper()
             else:
                 logger.error(f"Invalid state code: {state}. Must be 2-letter US state code.")
         
@@ -281,6 +302,12 @@ def migrate_existing_profiles():
         profiles = db.query(UserProfile).all()
         
         for profile in profiles:
+            # Add default values for new fields
+            if profile.message_count is None:
+                profile.message_count = 0
+            if profile.last_session_at is None:
+                profile.last_session_at = profile.updated_at or datetime.utcnow()
+            
             # Ensure role consistency
             if profile.role and profile.role not in VALID_ROLES:
                 # Try to fix common case issues

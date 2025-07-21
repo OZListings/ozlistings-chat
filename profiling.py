@@ -65,12 +65,16 @@ class ProfileExtractor:
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["share_calendar_link", "mark_needs_contact"],
+                        "enum": ["share_calendar_link", "mark_needs_contact", "request_time_clarification"],
                         "description": "Action to trigger"
                     },
                     "reason": {
                         "type": "string",
                         "description": "Reason for triggering the action"
+                    },
+                    "invalid_response": {
+                        "type": "string",
+                        "description": "For time clarification: the user's response that needs clarification"
                     }
                 },
                 "required": ["action", "reason"]
@@ -86,6 +90,12 @@ class ProfileExtractor:
         self.config = types.GenerateContentConfig(tools=[self.tools])
 
     def _get_extraction_prompt(self, message: str, current_profile: Dict, message_count: int) -> str:
+        from datetime import datetime
+        
+        # Get current date for time calculations
+        current_date = datetime.now().strftime("%B %d, %Y")
+        current_month_year = datetime.now().strftime("%B %Y")
+        
         role_status = f"Current role: {current_profile.get('role', 'Not determined')}"
         
         # Red teaming protections
@@ -107,6 +117,7 @@ class ProfileExtractor:
 Current Profile State:
 {json.dumps(current_profile, indent=2)}
 Message Count in Session: {message_count}
+Today's Date: {current_date} (Current month: {current_month_year})
 
 User Message: "{message}"
 
@@ -122,14 +133,40 @@ EXTRACTION RULES (ABSOLUTE):
 4. INVESTOR-SPECIFIC FIELDS (Only extract if role is clearly 'Investor'):
    - cap_gain_or_not: Must be a clear 'yes' or 'no'.
    - size_of_cap_gain: Extract a numerical value mentioned.
-   - time_of_cap_gain: Must be one of the enum values.
+   - time_of_cap_gain: Must be one of these EXACT enum values, but YOU must intelligently map user responses to the correct category
    - geographical_zone_of_investment: Must be a 2-letter US state code.
 
-5. ACTION TRIGGERS:
+5. TIME OF CAP GAIN INTELLIGENT MAPPING (CRITICAL):
+   The user can describe timing in natural language, and you must map it to one of these enum values:
+   
+   **"Last 180 days"** - Map to this if user mentions:
+   - "30 days ago", "last month", "2 months ago", "3 months ago", "4 months ago", "5 months ago"
+   - "recently", "just sold", "this year" (if within last 6 months)
+   - Any timeframe clearly within the last 6 months from today's date
+   
+   **"More than 180 days AGO"** - Map to this if user mentions:
+   - "last year", "a year ago", "8 months ago", "9 months ago", "long time ago"
+   - "2022", "2023", "2024" (if clearly more than 6 months ago)
+   - Any timeframe clearly more than 6 months ago from today's date
+   
+   **"Upcoming"** - Map to this if user mentions:
+   - "next month", "soon", "planning to sell", "will sell", "going to sell"
+   - "next year", "in the future", "upcoming sale"
+   - Any clear indication of future capital gains
+   
+   **ONLY trigger "request_time_clarification" if the timing is genuinely ambiguous:**
+   - Vague terms like "sometime", "eventually", "maybe"
+   - Contradictory information
+   - If you cannot reasonably determine which 180-day window applies
+   
+   **DO NOT ask for clarification if you can reasonably map the response to a category.**
+
+6. ACTION TRIGGERS:
    - `share_calendar_link`: Trigger this ONLY if the user explicitly asks to schedule a meeting, book a call, or speak with a team member.
    - `mark_needs_contact`: Trigger this ONLY if the user explicitly asks for someone to reach out, or if the session message count is 4 or more.
+   - `request_time_clarification`: Trigger ONLY when timing is genuinely ambiguous and cannot be reasonably mapped to any category.
 
-Your task is to analyze the "User Message" and determine if any information can be used to call the `update_user_profile` function. If so, call it with ONLY the data present in the message."""
+Your task is to analyze the "User Message" and determine if any information can be used to call the `update_user_profile` function. If so, call it with ONLY the data present in the message, using intelligent mapping for time_of_cap_gain."""
 
     async def extract_profile_updates(self, message: str, user_id: uuid.UUID) -> Dict:
         # Get current profile and increment message count
@@ -189,7 +226,7 @@ Your task is to analyze the "User Message" and determine if any information can 
                 update_user_profile(user_id, {'need_team_contact': True})
                 actions.append({
                     'action': 'share_calendar_link',
-                    'reason': 'You have been actively engaged in our conversation'
+                    'reason': 'You have been actively engaged in our conversation and may benefit from speaking with our team'
                 })
             
             return {

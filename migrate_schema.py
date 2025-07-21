@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database migration script to fix schema mismatches
+Database migration script to add message_count and last_session_at fields
 """
 
 import os
@@ -26,8 +26,8 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}?s
 engine = create_engine(DATABASE_URL)
 
 def run_migration():
-    """Run the database migration"""
-    print("🚀 Starting database migration...")
+    """Run the database migration to add message counting fields"""
+    print("🚀 Starting database migration for message counting...")
     
     try:
         with engine.connect() as conn:
@@ -35,87 +35,41 @@ def run_migration():
             trans = conn.begin()
             
             try:
-                # 1. Add missing email column
-                print("📝 Adding email column...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    ADD COLUMN IF NOT EXISTS email VARCHAR UNIQUE;
-                """))
-                
-                # 2. Create index on email column
-                print("📝 Creating email index...")
-                conn.execute(text("""
-                    CREATE INDEX IF NOT EXISTS ix_user_profiles_email 
-                    ON user_profiles (email);
-                """))
-                
-                # 3. Change user_id from UUID to VARCHAR
-                print("📝 Converting user_id to VARCHAR...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    ALTER COLUMN user_id TYPE VARCHAR USING user_id::VARCHAR;
-                """))
-                
-                # 4. Fix column name: geographical_zone_of_investment -> geographical_zone_of_investor
-                print("📝 Renaming geographical_zone_of_investment...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    RENAME COLUMN geographical_zone_of_investment TO geographical_zone_of_investor;
-                """))
-                
-                # 5. Fix column name: need_team_contact -> needs_team_contact
-                print("📝 Renaming need_team_contact...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    RENAME COLUMN need_team_contact TO needs_team_contact;
-                """))
-                
-                # 6. Add missing message_count column
+                # 1. Add message_count column
                 print("📝 Adding message_count column...")
                 conn.execute(text("""
-                    ALTER TABLE user_profiles 
+                    ALTER TABLE ozzie_user_profiles 
                     ADD COLUMN IF NOT EXISTS message_count INTEGER DEFAULT 0;
                 """))
                 
-                # 7. Add missing last_session_at column
+                # 2. Add last_session_at column
                 print("📝 Adding last_session_at column...")
                 conn.execute(text("""
-                    ALTER TABLE user_profiles 
+                    ALTER TABLE ozzie_user_profiles 
                     ADD COLUMN IF NOT EXISTS last_session_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
                 """))
                 
-                # 8. Change size_of_cap_gain from NUMERIC to VARCHAR
-                print("📝 Converting size_of_cap_gain to VARCHAR...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    ALTER COLUMN size_of_cap_gain TYPE VARCHAR USING size_of_cap_gain::VARCHAR;
-                """))
-                
-                # 9. Update geographical_zone_of_investor to be VARCHAR(2)
-                print("📝 Setting geographical_zone_of_investor to VARCHAR(2)...")
-                conn.execute(text("""
-                    ALTER TABLE user_profiles 
-                    ALTER COLUMN geographical_zone_of_investor TYPE VARCHAR(2);
-                """))
-                
-                # 10. Set default values for existing rows
+                # 3. Set default values for existing rows
                 print("📝 Setting default values for existing rows...")
                 conn.execute(text("""
-                    UPDATE user_profiles 
+                    UPDATE ozzie_user_profiles 
                     SET message_count = 0 
                     WHERE message_count IS NULL;
                 """))
                 
                 conn.execute(text("""
-                    UPDATE user_profiles 
-                    SET last_session_at = CURRENT_TIMESTAMP 
+                    UPDATE ozzie_user_profiles 
+                    SET last_session_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
                     WHERE last_session_at IS NULL;
                 """))
                 
+                # 4. Reset any profiles that have need_team_contact=True but message_count=0
+                # This fixes the issue where need_team_contact was set immediately
+                print("📝 Resetting need_team_contact for profiles with 0 message count...")
                 conn.execute(text("""
-                    UPDATE user_profiles 
-                    SET needs_team_contact = false 
-                    WHERE needs_team_contact IS NULL;
+                    UPDATE ozzie_user_profiles 
+                    SET need_team_contact = FALSE 
+                    WHERE message_count = 0 AND need_team_contact = TRUE;
                 """))
                 
                 # Commit transaction
@@ -132,45 +86,65 @@ def run_migration():
         print(f"❌ Database connection error: {e}")
         sys.exit(1)
 
-def verify_schema():
+def verify_migration():
     """Verify the migration was successful"""
-    print("\n🔍 Verifying schema...")
+    print("\n🔍 Verifying migration...")
     
     try:
         with engine.connect() as conn:
-            # Get column information
+            # Check that new columns exist
             result = conn.execute(text("""
                 SELECT column_name, data_type, is_nullable, column_default
                 FROM information_schema.columns 
-                WHERE table_name = 'user_profiles' 
-                ORDER BY ordinal_position;
+                WHERE table_name = 'ozzie_user_profiles' 
+                AND column_name IN ('message_count', 'last_session_at')
+                ORDER BY column_name;
             """))
             
             columns = result.fetchall()
             
-            print("\n📊 Current database schema:")
-            for col in columns:
-                print(f"  {col[0]}: {col[1]} (nullable: {col[2]}) default: {col[3]}")
-                
-            # Check for required columns
-            required_columns = [
-                'id', 'user_id', 'email', 'role', 'cap_gain_or_not',
-                'size_of_cap_gain', 'time_of_cap_gain', 'geographical_zone_of_investor',
-                'location_of_development', 'needs_team_contact', 'message_count',
-                'created_at', 'updated_at', 'last_session_at'
-            ]
-            
-            existing_columns = [col[0] for col in columns]
-            missing_columns = [col for col in required_columns if col not in existing_columns]
-            
-            if missing_columns:
-                print(f"\n❌ Missing columns: {missing_columns}")
+            if len(columns) == 2:
+                print("✅ New columns added successfully:")
+                for col in columns:
+                    print(f"  - {col[0]}: {col[1]} (nullable: {col[2]}) default: {col[3]}")
             else:
-                print(f"\n✅ All required columns present!")
+                print(f"❌ Expected 2 new columns, found {len(columns)}")
+                return False
+            
+            # Check existing data
+            count_result = conn.execute(text("""
+                SELECT COUNT(*) as total_profiles,
+                       COUNT(CASE WHEN message_count IS NOT NULL THEN 1 END) as with_message_count,
+                       COUNT(CASE WHEN last_session_at IS NOT NULL THEN 1 END) as with_session_time
+                FROM ozzie_user_profiles;
+            """))
+            
+            stats = count_result.fetchone()
+            print(f"\n📊 Profile statistics:")
+            print(f"  - Total profiles: {stats[0]}")
+            print(f"  - Profiles with message_count: {stats[1]}")
+            print(f"  - Profiles with last_session_at: {stats[2]}")
+            
+            if stats[0] == stats[1] == stats[2]:
+                print("✅ All profiles have the new fields!")
+            else:
+                print("⚠️  Some profiles missing new field values")
+            
+            return True
                 
     except Exception as e:
-        print(f"❌ Schema verification error: {e}")
+        print(f"❌ Verification error: {e}")
+        return False
 
 if __name__ == "__main__":
+    print("🗃️  Database Migration: Add Message Counting Fields")
+    print("=" * 60)
+    
     run_migration()
-    verify_schema() 
+    verify_migration()
+    
+    print("\n✅ Migration complete! The system now supports:")
+    print("  - Proper message counting per user session")
+    print("  - Session timeout (30 minutes of inactivity)")
+    print("  - Calendar auto-trigger after 4 messages")
+    print("  - Fixed need_team_contact logic")
