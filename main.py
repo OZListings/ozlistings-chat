@@ -1,4 +1,4 @@
-# main.py
+# main.py - Updated without breaking existing frontend
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,6 +77,7 @@ class ChatRequest(BaseModel):
             raise ValueError('Message too long (max 1000 characters)')
         return v.strip()
 
+# UNCHANGED: Keep the same response model to avoid breaking frontend
 class ChatResponse(BaseModel):
     response: str
     profile_updated: bool = False
@@ -88,7 +89,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     try:
         logger.info(f"Chat request received - user_id: {chat_req.user_id}, message: {chat_req.message[:100]}...")
         
-        # This single call now handles both profile updates and response generation
+        # This call now returns enhanced responses with better calendar formatting
         result = await get_response_from_gemini(chat_req.user_id, chat_req.message)
         
         response_text = result["response_text"]
@@ -99,6 +100,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
             logger.warning(f"Security warning for user {chat_req.user_id}")
             # Continue with response but log the attempt
         
+        # Return SAME structure as before - no breaking changes
         return {
             "response": response_text,
             "profile_updated": bool(profile_result.get('updates')),
@@ -111,6 +113,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         logger.error(f"Chat endpoint error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+# UNCHANGED: All other endpoints remain exactly the same
 class ProfileUpdateRequest(BaseModel):
     user_id: uuid.UUID
     message: str
@@ -183,5 +186,5 @@ def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
-        "version": "2.0.0"  # Updated version
+        "version": "2.0.1"  # Updated version for UX improvements
     }
