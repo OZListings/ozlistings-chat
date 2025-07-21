@@ -1,4 +1,4 @@
-# profiling.py - Updated with better LLM instructions (non-breaking)
+# profiling.py - Updated with better LLM instructions and fixed calendar link
 
 from google import genai
 from google.genai import types
@@ -14,7 +14,7 @@ from database import get_user_profile, update_user_profile, increment_message_co
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Primary public-facing scheduling link
+# FIXED: Primary public-facing scheduling link - this should be used consistently
 CALENDAR_LINK = "https://ozlistings.com/schedule-a-call"
 
 class ProfileExtractor:
@@ -144,7 +144,7 @@ Missing information that we DO track:
 {json.dumps({k: 'Not provided yet' for k, v in current_profile.items() if v is None or v == ''}, indent=2)}
 """
 
-        calendar_trigger_guidance = """
+        calendar_trigger_guidance = f"""
 CALENDAR CONSULTATION TRIGGERS - Use trigger_action with "share_calendar_link":
 
 🎯 WHEN TO SUGGEST CONSULTATIONS:
@@ -171,6 +171,8 @@ Examples of good consultation triggers:
 - "What are Opportunity Zones?" → Answer directly
 - "What's the 10-year benefit?" → Answer directly
 - Basic informational questions → Answer directly
+
+CRITICAL: When triggering calendar links, NEVER generate URLs. The system will use: {CALENDAR_LINK}
 """
         
         return f"""You are a specialized data extraction system for OZ Listings. Analyze the user message and extract ONLY information that maps to our tracking system.

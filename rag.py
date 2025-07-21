@@ -62,15 +62,21 @@ Investor Profile:
 - Target state: {profile.get('geographical_zone_of_investment', 'Not specified')}
 """
         
-        # Simplified calendar link formatting
+        # Enhanced calendar link formatting - visually distinctive
+        calendar_link = get_calendar_link()
         calendar_formatting = f"""
 CALENDAR LINK FORMATTING:
 
-When sharing calendar links, use this EXACT format:
+When sharing calendar links, use this EXACT format with proper spacing:
 
-[**Schedule a Call**]({get_calendar_link()})
+---
 
-That's it - just the blue link with bold text and minimal spacing.
+## [🗓️ **Schedule Your Consultation**]({calendar_link})
+
+---
+
+CRITICAL: Use the EXACT URL: {calendar_link}
+Never generate or hallucinate different URLs. Always use the provided link above.
 """
         
         # Handle triggered actions
@@ -79,14 +85,22 @@ That's it - just the blue link with bold text and minimal spacing.
             if action['action'] == 'share_calendar_link':
                 action_context += f"""
 🎯 IMPORTANT: Include the calendar link in your response.
-Use the exact format above: [**Schedule a Call**]({get_calendar_link()})
+Use this EXACT format:
+
+---
+
+## [🗓️ **Schedule Your Consultation**]({calendar_link})
+
+---
+
+NEVER use any other URL. Only use: {calendar_link}
 """
         
         # Concise conversation guidance
         conversation_guidance = f"""
 CONVERSATION STYLE:
 
-KEEP RESPONSES SHORT (4-5 sentences max for simple questions, 1-2 paragraph for complex ones)
+KEEP RESPONSES SHORT (4-5 sentences max for simple questions, 1-2 paragraphs for complex ones)
 
 ALWAYS POSITIVE:
 ✅ Focus on benefits, opportunities, advantages
@@ -116,8 +130,8 @@ Response: "Our specialists can provide personalized guidance for your specific s
 RESPONSE FORMATTING:
 
 1. **Keep It Short:**
-   - 1-3 sentences for simple questions
-   - 1 paragraph maximum for complex topics
+   - 4-5 sentences for simple questions
+   - 1-2 paragraphs maximum for complex topics
    - Use **bold** for key benefits and amounts only
    - No bullet points unless absolutely necessary
 
@@ -225,7 +239,7 @@ Remember: Short, positive, informational responses only. Suggest consultations f
 
 Current user message: {message}
 
-Generate a brief, positive response (2-3 sentences max) that:
+Generate a brief, positive response (4-5 sentences max) that:
 1. Directly answers the user's question focusing only on benefits
 2. Stays informational - no specific business advice
 3. Includes calendar link if triggered using exact format
