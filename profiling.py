@@ -14,8 +14,8 @@ from database import get_user_profile, update_user_profile, increment_message_co
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Calendar link placeholder
-CALENDAR_LINK = "https://cal.com/ozlistings-team/consultation"
+# Primary public-facing scheduling link
+CALENDAR_LINK = "https://ozlistings.com/schedule-a-call"
 
 class ProfileExtractor:
     def __init__(self):

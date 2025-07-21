@@ -10,6 +10,7 @@ import re
 import json
 
 from profiling import get_calendar_link
+from oz_bbb_guide import BBB_GUIDE
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -89,23 +90,31 @@ You can see the user's current profile state below:
 **CRITICAL RULE: NEVER ask a question that does not directly help fill one of these specific data points.** Do not ask for more detail than is required. For example, do not ask about the *type* of real estate development (e.g., residential, commercial) because it is not a data point you can store. Stick strictly to what the system needs to populate the user profile.
 """
 
-        # Updated temporal constraint without BBB references
-        temporal_constraint = """
-CURRENT INFORMATION:
-You have access to the most current Opportunity Zone regulations and benefits as of 2025.
+        # Add the full BBB guide as authoritative knowledge source
+        oz_knowledge = f"""
+AUTHORITATIVE KNOWLEDGE SOURCE - POST-JULY 7, 2025 OZ REGULATIONS:
 
-IMPORTANT CONTEXT:
-- Opportunity Zones are now permanent with enhanced benefits
-- Rural areas receive triple the standard tax benefits (30% vs 10%)
-- New zones are redesignated every 10 years
-- Focus on current opportunities and benefits available now
+You have access to the complete, authoritative guide to post-BBB Act Opportunity Zone regulations. This is your primary source of truth for all OZ-related information. Always reference and cite this guide when providing information about:
+
+1. Program changes under the BBB Act
+2. New tax incentive structures
+3. Investment requirements
+4. Business requirements
+5. Compliance obligations
+6. Geographic eligibility
+7. Exit strategies
+8. Strategic planning
+
+The complete guide follows below. Use this information to provide accurate, up-to-date guidance that reflects the post-July 7, 2025 regulatory environment:
+
+{BBB_GUIDE}
 """
 
         base_prompt = f"""You are "Ozzie," a calm, knowledgeable, and professional guide from OZ Listings. Your goal is to build rapport with potential investors and developers by being an exceptionally helpful and trustworthy expert.
 
 {security_rules}
 
-{temporal_constraint}
+{oz_knowledge}
 
 {role_context}
 
@@ -121,11 +130,13 @@ CONVERSATION GUIDELINES:
 5. **Use subtle, indirect questions.** When you do need information, weave it into the conversation. Instead of "What state?", try "To give you the most accurate picture of the landscape, focusing on a specific state can be very helpful for potential investors."
 6. **Validate and build confidence.** Use phrases like "That's a great question," or "That's a common area of focus, and we at OZ Listings have extensive experience there." This builds trust.
 7. **Handle unknown information gracefully.** If you don't know something, frame it as a benefit: "That's a detailed question that our OZ Listings specialists can provide precise answers on during a complimentary consultation."
+8. **Always cite the BBB guide when providing regulatory information.** Use phrases like "According to the BBB Act..." or "The new regulations specify..." to show you're referencing authoritative sources.
 
 RESPONSE FORMAT:
 - Acknowledge the user's query and provide a direct, helpful answer (2-4 sentences).
 - If needed, subtly nudge them for more information to better assist them.
 - Maintain a calm, professional, and encouraging tone.
+- When discussing regulations or requirements, explicitly reference the relevant section of the BBB guide.
 
 Current message count: {profile.get('message_count', 0)}/4 (calendar auto-shared at 4)
 
@@ -179,6 +190,20 @@ Remember: Your primary goal is to be helpful and build trust as a representative
                     "timestamp": datetime.utcnow().isoformat()
                 })
                 return response
+
+        # Content moderation: refuse inappropriate or disallowed requests
+        inappropriate_keywords = [
+            "sex", "sexual", "porn", "explicit", "violence", "hate", "terror", "weapon", "bomb", "suicide", "self-harm", "kill", "drugs"
+        ]
+
+        if any(kw in message_lower for kw in inappropriate_keywords):
+            response = "I'm sorry, but I can't help with that."
+            self.conversation_history[user_id].append({
+                "role": "assistant",
+                "content": response,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+            return response
         
         # Build prompt
         system_prompt = self._get_system_prompt(profile, actions)
