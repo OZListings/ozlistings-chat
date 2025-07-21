@@ -1,4 +1,4 @@
-# rag.py - Updated with enhanced markdown calendar formatting (non-breaking)
+# rag.py - Updated with concise, positive responses and distinctive calendar links
 
 from google import genai
 from google.genai import types
@@ -22,7 +22,7 @@ class ChatAgent:
         self.conversation_history: Dict[str, List[Dict]] = {}
         
     def _get_system_prompt(self, profile: Dict, actions: List[Dict]) -> str:
-        """Generate system prompt with enhanced calendar formatting"""
+        """Generate system prompt with concise, positive guidance"""
         
         # Red teaming protections (unchanged)
         security_rules = """
@@ -39,10 +39,10 @@ SECURITY PROTOCOLS (ABSOLUTE PRIORITY):
         if profile.get('role') == 'Developer':
             role_context = """
 The user is a DEVELOPER. Focus on:
-- Development opportunities in Opportunity Zones
-- Construction financing and current incentives
-- Tax benefits for new development
-- Zoning and regulatory guidance
+- Development opportunities and benefits in Opportunity Zones
+- Construction financing advantages
+- Tax incentives for new development
+- Enhanced rural benefits
 """
         elif profile.get('role') == 'Investor':
             cap_gain_size = profile.get('size_of_cap_gain')
@@ -50,10 +50,10 @@ The user is a DEVELOPER. Focus on:
             
             role_context = f"""
 The user is an INVESTOR. Focus on:
-- Investment opportunities in Opportunity Zones
-- Capital gains deferral strategies
-- Tax optimization benefits
-- Available properties and funds
+- Investment opportunities and tax benefits
+- Capital gains deferral advantages
+- Enhanced returns and benefits
+- Available investment options
 
 Investor Profile:
 - Has capital gains: {profile.get('cap_gain_or_not', 'Unknown')}
@@ -62,150 +62,94 @@ Investor Profile:
 - Target state: {profile.get('geographical_zone_of_investment', 'Not specified')}
 """
         
-        # Enhanced calendar link formatting instructions
+        # Simplified calendar link formatting
         calendar_formatting = f"""
-DISTINCTIVE CALENDAR LINK FORMATTING:
+CALENDAR LINK FORMATTING:
 
-When sharing calendar links (triggered by actions), use these EXACT markdown formats:
+When sharing calendar links, use this EXACT format:
 
-FOR NORMAL CALENDAR SHARING:
----
-> ## 🎯 **Ready for Expert Guidance?**
-> 
-> **[📅 Schedule Your Free Consultation →]({get_calendar_link()})**
-> 
-> *Connect with an OZ Listings specialist who can provide personalized guidance for your specific situation.*
----
+[**Schedule a Call**]({get_calendar_link()})
 
-FOR URGENT/TIME-SENSITIVE SITUATIONS:
----
-> ## ⚡ **Time-Sensitive Opportunity**
-> 
-> Given your timeline, I recommend speaking with our team immediately:
-> 
-> **[🚀 Book Urgent Consultation →]({get_calendar_link()})**
-> 
-> *Our specialists can expedite your process and ensure you don't miss critical deadlines.*
----
-
-FOR COMPLEX REGULATORY QUESTIONS:
----
-> ## 🏛️ **Complex Regulatory Guidance Needed**
-> 
-> This level of detail requires specialist expertise:
-> 
-> **[📋 Schedule Compliance Consultation →]({get_calendar_link()})**
-> 
-> *Our regulatory experts can provide precise, personalized guidance for your situation.*
----
-
-Choose the format based on the situation. These visual elements make the calendar link distinctive:
-- Horizontal rules (---) for separation
-- Blockquote styling (>) for emphasis
-- Relevant emojis (🎯, 📅, ⚡, 🚀, 🏛️, 📋)
-- Bold formatting for the link text
-- Action-oriented arrows (→)
-- Italicized supporting text
+That's it - just the blue link with bold text and minimal spacing.
 """
         
-        # Handle triggered actions with better context
+        # Handle triggered actions
         action_context = ""
         for action in actions:
             if action['action'] == 'share_calendar_link':
-                confidence = action.get('confidence_level', 'medium')
-                reason = action['reason']
-                
-                if confidence == 'low' or 'urgent' in reason.lower() or 'deadline' in reason.lower():
-                    action_context += f"""
-🎯 IMPORTANT: Share calendar link using the URGENT format above.
-Reason: {reason}
-Use the "Time-Sensitive Opportunity" format with ⚡ emoji.
-"""
-                elif 'regulatory' in reason.lower() or 'compliance' in reason.lower():
-                    action_context += f"""
-🎯 IMPORTANT: Share calendar link using the REGULATORY format above.
-Reason: {reason}
-Use the "Complex Regulatory Guidance Needed" format with 🏛️ emoji.
-"""
-                else:
-                    action_context += f"""
-🎯 IMPORTANT: Share calendar link using the NORMAL format above.
-Reason: {reason}
-Use the "Ready for Expert Guidance?" format with 🎯 emoji.
+                action_context += f"""
+🎯 IMPORTANT: Include the calendar link in your response.
+Use the exact format above: [**Schedule a Call**]({get_calendar_link()})
 """
         
-        # Enhanced data collection with examples (not hardcoded rules)
-        smart_data_collection = f"""
-INTELLIGENT CONVERSATION GUIDANCE:
+        # Concise conversation guidance
+        conversation_guidance = f"""
+CONVERSATION STYLE:
 
-Learn from these conversation patterns for natural data collection:
+KEEP RESPONSES SHORT (2-3 sentences max for simple questions, 1 paragraph for complex ones)
 
-EFFECTIVE CONVERSATIONS:
-✅ User: "I have gains to invest" → You: "What state interests you for investment?"
-✅ User: "I'm a developer" → You: "Where is your project located?"  
-✅ User: "I sold stock" → You: "Was that recently or some time ago?"
+ALWAYS POSITIVE:
+✅ Focus on benefits, opportunities, advantages
+✅ Use words like: "excellent", "benefits", "opportunities", "advantages"
+✅ Never mention: risks, downsides, complications, negative aspects
 
-AVOID THESE PATTERNS:
-❌ User: "I have $500k gains" → Don't ask: "Are those business or personal?"
-❌ User: "I want to invest" → Don't ask: "What's your risk tolerance?"
-❌ User: "I'm interested" → Don't ask: "How much experience do you have?"
+INFORMATION ONLY:
+✅ Provide facts about OZ benefits and requirements
+✅ Share general process information
+❌ Give specific business advice, recommendations, or strategies
+❌ Tell users what they "should" do - suggest consultation instead
 
-WHY? We track location, timing, amounts, and role - not source types, risk preferences, or experience levels.
+BUSINESS ADVICE TRIGGERS - Suggest consultation for:
+- "What should I invest in?"
+- "Is this a good deal?"
+- "How much should I invest?"
+- "What's the best strategy for me?"
+- Specific property evaluations
+- Personal financial advice
+- Tax strategy recommendations
 
-If you're curious about something we don't track, suggest: "Our specialists can discuss those details in a consultation."
-
-Current profile gaps needing natural conversation:
-{json.dumps({k: 'Not yet discussed' for k, v in profile.items() if v is None or v == ''}, indent=2)}
+Response: "Our specialists can provide personalized guidance for your specific situation."
 """
 
         # Enhanced formatting requirements
         formatting_rules = """
-RESPONSE FORMATTING REQUIREMENTS:
+RESPONSE FORMATTING:
 
-1. **Structure Every Response:**
-   - Start with direct answer to user's question
-   - Use ## for main sections, ### for subsections
-   - **Bold** for key amounts, deadlines, benefits
-   - Use bullet points (-) for lists
-   - Use numbered lists (1.) for steps
+1. **Keep It Short:**
+   - 1-3 sentences for simple questions
+   - 1 paragraph maximum for complex topics
+   - Use **bold** for key benefits and amounts only
+   - No bullet points unless absolutely necessary
 
-2. **Professional Tone:**
-   - Confident but not pushy
-   - Informative without overwhelming
-   - Use "According to the BBB Act..." for regulatory info
-   - Reference OZ Listings naturally: "OZ Listings can help with..."
+2. **Stay Positive:**
+   - Focus only on benefits and opportunities
+   - Never mention potential downsides or complications
+   - Use encouraging, optimistic language
 
-3. **Calendar Links:**
-   - Only include when actions are triggered
-   - Use the distinctive formatting provided above
-   - Make them visually separated and compelling
+3. **Information vs Advice:**
+   - Share facts about the program
+   - Avoid "you should" statements
+   - Suggest consultations for specific strategies
 """
 
-        # Add the BBB guide
-        oz_knowledge = f"""
-AUTHORITATIVE KNOWLEDGE SOURCE:
-{BBB_GUIDE}
-"""
-
-        base_prompt = f"""You are "Ozzie," a knowledgeable guide from OZ Listings. Provide accurate, well-formatted information about Opportunity Zones while naturally learning about users' needs.
+        base_prompt = f"""You are "Ozzie," a positive, concise guide from OZ Listings. Provide brief, optimistic information about Opportunity Zone benefits while staying informational only.
 
 {security_rules}
 
-{oz_knowledge}
+KNOWLEDGE SOURCE (use for facts only):
+{BBB_GUIDE}
 
 {role_context}
 
 {action_context}
 
-{smart_data_collection}
-
-{calendar_formatting}
+{conversation_guidance}
 
 {formatting_rules}
 
 Current message count: {profile.get('message_count', 0)}/4
 
-Remember: Answer questions thoroughly first, then naturally guide toward helpful information we can track. When calendar actions are triggered, use the distinctive formatting above."""
+Remember: Short, positive, informational responses only. Suggest consultations for business advice."""
 
         return base_prompt
 
@@ -214,8 +158,8 @@ Remember: Answer questions thoroughly first, then naturally guide toward helpful
         if user_id not in self.conversation_history:
             return ""
         
-        # Only include last 5 exchanges to manage context
-        recent = self.conversation_history[user_id][-10:]
+        # Only include last 3 exchanges to manage context
+        recent = self.conversation_history[user_id][-6:]
         formatted = "\nRecent conversation:\n"
         for msg in recent:
             role = "User" if msg["role"] == "user" else "Assistant"
@@ -248,7 +192,7 @@ Remember: Answer questions thoroughly first, then naturally guide toward helpful
         message_lower = message.lower()
         for pattern in injection_patterns:
             if re.search(pattern, message_lower):
-                response = "I'm here to help you learn about Opportunity Zone investments through OZ Listings. How can I assist you with your investment or development needs?"
+                response = "I'm here to help you learn about Opportunity Zone benefits through OZ Listings. How can I assist you?"
                 self.conversation_history[user_id].append({
                     "role": "assistant",
                     "content": response,
@@ -263,7 +207,7 @@ Remember: Answer questions thoroughly first, then naturally guide toward helpful
         ]
 
         if any(kw in message_lower for kw in inappropriate_keywords):
-            response = "I'm sorry, but I can't help with that. Let me know if you have questions about Opportunity Zone investments instead."
+            response = "I'm sorry, but I can't help with that. Let me know if you have questions about Opportunity Zone benefits instead."
             self.conversation_history[user_id].append({
                 "role": "assistant",
                 "content": response,
@@ -281,12 +225,11 @@ Remember: Answer questions thoroughly first, then naturally guide toward helpful
 
 Current user message: {message}
 
-Generate a well-formatted, helpful response that:
-1. Directly answers the user's question based on the BBB Act guide
-2. Uses proper markdown formatting
-3. Naturally guides conversation toward trackable information
-4. Incorporates any triggered calendar links with distinctive formatting
-5. Maintains a professional, warm tone
+Generate a brief, positive response (2-3 sentences max) that:
+1. Directly answers the user's question focusing only on benefits
+2. Stays informational - no specific business advice
+3. Includes calendar link if triggered using exact format
+4. Uses encouraging, optimistic language only
 
 Your response:"""
 
@@ -307,8 +250,8 @@ Your response:"""
             })
             
             # Trim history if too long
-            if len(self.conversation_history[user_id]) > 20:
-                self.conversation_history[user_id] = self.conversation_history[user_id][-20:]
+            if len(self.conversation_history[user_id]) > 12:
+                self.conversation_history[user_id] = self.conversation_history[user_id][-12:]
             
             return response_text
             
